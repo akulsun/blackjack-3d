@@ -295,3 +295,56 @@ export function playShuffleSound() {
     }, i * 35);
   }
 }
+
+/**
+ * Synthesizes an energetic celebratory level-up fanfare.
+ */
+export function playLevelUpSound() {
+  if (!isSoundEnabled || currentVolume <= 0) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const dest = getAudioDestination(ctx);
+
+  const now = ctx.currentTime;
+  // Ascending brass/bell arpeggio: C4, E4, G4, C5, E5, G5, C6 triumph chord
+  const chordNotes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50];
+
+  chordNotes.forEach((freq, idx) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const startTime = now + idx * 0.055;
+    const duration = 0.55;
+
+    osc.type = idx >= 4 ? 'sine' : 'triangle';
+    osc.frequency.setValueAtTime(freq, startTime);
+
+    gain.gain.setValueAtTime(0.001, startTime);
+    gain.gain.linearRampToValueAtTime(0.14, startTime + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+    osc.connect(gain);
+    gain.connect(dest);
+
+    osc.start(startTime);
+    osc.stop(startTime + duration);
+  });
+
+  // Bright shimmer bell at the pinnacle
+  setTimeout(() => {
+    if (!audioCtx) return;
+    const peakTime = audioCtx.currentTime;
+    const bellOsc = audioCtx.createOscillator();
+    const bellGain = audioCtx.createGain();
+    bellOsc.type = 'sine';
+    bellOsc.frequency.setValueAtTime(2093.00, peakTime); // C7 chime
+
+    bellGain.gain.setValueAtTime(0.12, peakTime);
+    bellGain.gain.exponentialRampToValueAtTime(0.0001, peakTime + 0.6);
+
+    bellOsc.connect(bellGain);
+    bellGain.connect(dest);
+
+    bellOsc.start(peakTime);
+    bellOsc.stop(peakTime + 0.6);
+  }, 350);
+}

@@ -39,15 +39,40 @@
     <!-- Floating Gesture & Quick Action Toast -->
     <div id="gesture-toast" class="gesture-toast hidden" aria-live="polite"></div>
 
+    <!-- Floating Level-Up & Tier Celebration Banner -->
+    <div id="levelup-toast" class="levelup-toast hidden" aria-live="assertive">
+      <div class="levelup-glow"></div>
+      <div class="levelup-content">
+        <div class="levelup-icon-box" id="levelup-icon">⭐</div>
+        <div class="levelup-text-group">
+          <div class="levelup-tag" id="levelup-tag">LEVEL UP!</div>
+          <div class="levelup-title" id="levelup-title">Level 6 &bull; Silver Club</div>
+          <div class="levelup-desc" id="levelup-desc">Reload Allowance increased to $2,500!</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Bankroll & Current Bet Display -->
-    <div id="bankroll-card">
+    <div id="bankroll-card" title="Click to view Casino Loyalty Career &amp; Stats">
       <div class="bankroll-header-row">
         <span class="bankroll-label">Bankroll</span>
-        <span id="vip-tier-badge" class="vip-tier-badge" title="Current Bankroll VIP Tier">🥉 Bronze Roller</span>
+        <span id="vip-tier-badge" class="vip-tier-badge" title="Career Loyalty Tier (Permanent Status)">🥉 Bronze Roller</span>
       </div>
       <div id="bankroll-val" class="bankroll-amount">$1,000</div>
       <div id="current-bet-display" class="bet-amount hidden">Bet: <span id="bet-val">$0</span></div>
-      <button id="reset-bankroll-btn" class="reset-btn hidden" title="Reload $1,000 starting chips">Reload $1,000</button>
+
+      <!-- Career XP Progress Bar -->
+      <div id="bankroll-xp-container" class="bankroll-xp-container">
+        <div class="bankroll-xp-header">
+          <span id="bankroll-level-badge" class="bankroll-level-badge">Lv. 1</span>
+          <span id="bankroll-xp-text" class="bankroll-xp-text">0 / 200 XP</span>
+        </div>
+        <div class="bankroll-xp-track">
+          <div id="bankroll-xp-fill" class="bankroll-xp-fill" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <button id="reset-bankroll-btn" class="reset-btn hidden" title="Claim VIP reload chips">Reload $1,000</button>
     </div>
 
     <!-- Live Hand Scores -->
@@ -553,23 +578,45 @@
 
         <!-- Modal Body -->
         <div class="settings-modal-body stats-body">
-          <!-- VIP Tier & Progression Card -->
+          <!-- VIP Loyalty Career & Progression Card -->
           <div class="stats-tier-card">
             <div class="stats-tier-info">
               <span class="stats-tier-icon" id="stats-tier-icon">🥉</span>
               <div class="stats-tier-text">
                 <div class="stats-tier-header-row">
                   <strong id="stats-tier-name">Bronze Roller</strong>
-                  <span class="stats-tier-level-tag">VIP Status</span>
+                  <span class="stats-tier-level-tag" id="stats-tier-level-tag">Level 1</span>
+                  <span class="stats-tier-title-tag" id="stats-tier-title-tag">Apprentice Roller</span>
                 </div>
-                <span id="stats-tier-desc" class="stats-tier-desc">Tier milestone progression based on bankroll</span>
+                <span id="stats-tier-desc" class="stats-tier-desc">Permanent Loyalty Career Status &bull; Never demotes from bets</span>
               </div>
             </div>
+
+            <!-- Progression Track -->
             <div class="stats-tier-progress-group">
-              <div class="stats-tier-bar">
-                <div id="stats-tier-fill" class="stats-tier-fill" style="width: 66%;"></div>
+              <div class="stats-tier-bar-labels">
+                <span id="stats-xp-summary" class="stats-xp-summary">0 / 1,000 XP to Silver Club</span>
+                <span id="stats-tier-target" class="stats-tier-target">1,000 XP remaining (0%)</span>
               </div>
-              <span id="stats-tier-target" class="stats-tier-target">$500 to Silver Club</span>
+              <div class="stats-tier-bar">
+                <div id="stats-tier-fill" class="stats-tier-fill" style="width: 0%;"></div>
+              </div>
+            </div>
+
+            <!-- Active Perks & Next Milestone -->
+            <div class="stats-perks-row">
+              <div class="stats-perks-block">
+                <span class="stats-perk-header">Active Tier Perks:</span>
+                <div id="stats-active-perks" class="stats-perk-pills">
+                  <span class="perk-pill">✓ $1,000 Reload Allowance</span>
+                  <span class="perk-pill">✓ Emerald Table Felt</span>
+                  <span class="perk-pill">✓ Strategy Guidance</span>
+                </div>
+              </div>
+              <div class="stats-next-block">
+                <span class="stats-perk-header">Next Milestone Preview:</span>
+                <span id="stats-next-preview" class="stats-next-preview">⭐ Silver Club (Lv. 6): $2,500 Reload Allowance (+150%) &amp; Sapphire Navy Felt</span>
+              </div>
             </div>
           </div>
 
@@ -579,6 +626,11 @@
               <span class="kpi-title">Net Profit / Loss</span>
               <span id="kpi-net-profit" class="kpi-value profit-neutral">$0</span>
               <span id="kpi-total-wagered" class="kpi-sub">Total Wagered: $0</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-title">Career Loyalty XP</span>
+              <span id="kpi-total-xp" class="kpi-value" style="color: #facc15;">0 XP</span>
+              <span id="kpi-level-sub" class="kpi-sub">Level 1 &bull; 0 / 200 XP</span>
             </div>
             <div class="kpi-card">
               <span class="kpi-title">Win Rate</span>
@@ -599,6 +651,11 @@
               <span class="kpi-title">Winning Streak</span>
               <span id="kpi-streak" class="kpi-value">0</span>
               <span id="kpi-best-streak" class="kpi-sub">Best Streak: 0</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-title">Peak Bankroll</span>
+              <span id="kpi-peak-bankroll" class="kpi-value" style="color: #38bdf8;">$1,000</span>
+              <span class="kpi-sub">All-time highest balance</span>
             </div>
             <div class="kpi-card">
               <span class="kpi-title">Biggest Single Win</span>
