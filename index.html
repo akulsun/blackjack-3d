@@ -11,6 +11,21 @@
 
     <!-- Top Navigation Bar -->
     <div id="top-nav-bar">
+      <button id="stats-open-btn" class="top-nav-btn" title="View Game Stats & Analytics [T]" aria-label="Player Statistics">
+        <svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="20" x2="18" y2="10"></line>
+          <line x1="12" y1="20" x2="12" y2="4"></line>
+          <line x1="6" y1="20" x2="6" y2="14"></line>
+        </svg>
+        <span>Stats</span>
+      </button>
+      <button id="shortcuts-open-btn" class="top-nav-btn" title="View Keyboard Shortcuts & Mobile Gestures [?]" aria-label="Controls and Shortcuts">
+        <svg class="nav-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+          <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10"></path>
+        </svg>
+        <span>Controls</span>
+      </button>
       <button id="settings-open-btn" class="top-nav-btn" title="Open Game Settings" aria-label="Game Settings">
         <svg class="gear-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3"></circle>
@@ -20,6 +35,9 @@
         <span id="header-rule-badge" class="header-rule-badge s17" title="Dealer stands on all 17s">S17</span>
       </button>
     </div>
+
+    <!-- Floating Gesture & Quick Action Toast -->
+    <div id="gesture-toast" class="gesture-toast hidden" aria-live="polite"></div>
 
     <!-- Bankroll & Current Bet Display -->
     <div id="bankroll-card">
@@ -54,30 +72,67 @@
       <!-- Betting Chips Selector -->
       <div id="betting-controls">
         <div id="chip-buttons">
-          <button class="chip-btn chip-1" data-denom="1" title="Click to bet $1">$1</button>
-          <button class="chip-btn chip-5" data-denom="5" title="Click to bet $5">$5</button>
-          <button class="chip-btn chip-25" data-denom="25" title="Click to bet $25">$25</button>
-          <button class="chip-btn chip-100" data-denom="100" title="Click to bet $100">$100</button>
-          <button id="clear-bet-btn" class="clear-btn" title="Clear current bet">Clear</button>
+          <button class="chip-btn chip-1" data-denom="1" title="Bet $1 [Key 1]">$1</button>
+          <button class="chip-btn chip-5" data-denom="5" title="Bet $5 [Key 5 or 2]">$5</button>
+          <button class="chip-btn chip-25" data-denom="25" title="Bet $25 [Key 25 or 3]">$25</button>
+          <button class="chip-btn chip-100" data-denom="100" title="Bet $100 [Key 100 or 4]">$100</button>
+          <button class="chip-btn chip-500" data-denom="500" title="Bet $500 [Key 500 or 6]">$500</button>
+          <button class="chip-btn chip-1000" data-denom="1000" title="Bet $1,000 [Key 1k or 7]">$1K</button>
+          <button id="double-bet-btn" class="util-btn double-bet-btn" title="Double current bet (2x) [X]">2&times;</button>
+          <button id="clear-bet-btn" class="clear-btn" title="Clear current bet [C]">Clear</button>
         </div>
       </div>
 
       <div id="button-group">
-        <button id="deal-btn" class="casino-btn btn-deal">Place a Bet</button>
+        <div id="betting-action-group" class="betting-action-group">
+          <button id="rebet-btn" class="casino-btn btn-rebet hidden" title="Repeat last round's bet [R]">
+            <span class="btn-text">Rebet</span>
+            <kbd class="kbd-hint">R</kbd>
+          </button>
+          <button id="deal-btn" class="casino-btn btn-deal">
+            <span class="btn-text" id="deal-btn-text">Place a Bet</span>
+            <kbd class="kbd-hint hidden" id="deal-kbd-hint">Space</kbd>
+          </button>
+          <button id="rebet-deal-btn" class="casino-btn btn-rebet-deal hidden" title="Rebet and deal immediately [Shift+R]">
+            <span class="btn-text">Rebet &amp; Deal</span>
+            <kbd class="kbd-hint">&#x21E7;R</kbd>
+          </button>
+        </div>
         <!-- Insurance Offer Prompt -->
         <div id="insurance-prompt" class="hidden">
           <div class="insurance-title">Dealer shows Ace &bull; Insurance? (Pays 2:1)</div>
           <div class="insurance-buttons">
-            <button id="insure-yes-btn" class="casino-btn btn-insure">Take Insurance ($<span id="insure-cost">0</span>)</button>
-            <button id="insure-no-btn" class="casino-btn btn-no-insure">No Insurance</button>
+            <button id="insure-yes-btn" class="casino-btn btn-insure" title="Take Insurance [Y]">
+              <span class="btn-text">Take Insurance ($<span id="insure-cost">0</span>)</span>
+              <kbd class="kbd-hint">Y</kbd>
+            </button>
+            <button id="insure-no-btn" class="casino-btn btn-no-insure" title="Decline Insurance [N]">
+              <span class="btn-text">No Insurance</span>
+              <kbd class="kbd-hint">N</kbd>
+            </button>
           </div>
         </div>
         <div id="player-actions" class="hidden">
-          <button id="hit-btn" class="casino-btn btn-hit">Hit</button>
-          <button id="stand-btn" class="casino-btn btn-stand">Stand</button>
-          <button id="double-btn" class="casino-btn btn-double">Double</button>
-          <button id="split-btn" class="casino-btn btn-split">Split</button>
-          <button id="surrender-btn" class="casino-btn btn-surrender">Surrender</button>
+          <button id="hit-btn" class="casino-btn btn-hit" title="Draw another card [H / Swipe Down]">
+            <span class="btn-text">Hit</span>
+            <kbd class="kbd-hint">H</kbd>
+          </button>
+          <button id="stand-btn" class="casino-btn btn-stand" title="End your turn [S / Swipe Across]">
+            <span class="btn-text">Stand</span>
+            <kbd class="kbd-hint">S</kbd>
+          </button>
+          <button id="double-btn" class="casino-btn btn-double" title="Double bet and draw 1 card [D / Swipe Up]">
+            <span class="btn-text">Double</span>
+            <kbd class="kbd-hint">D</kbd>
+          </button>
+          <button id="split-btn" class="casino-btn btn-split" title="Split paired cards into separate hands [P / 2-Finger Tap]">
+            <span class="btn-text">Split</span>
+            <kbd class="kbd-hint">P</kbd>
+          </button>
+          <button id="surrender-btn" class="casino-btn btn-surrender" title="Surrender hand for 50% bet recovery [U]">
+            <span class="btn-text">Surrender</span>
+            <kbd class="kbd-hint">U</kbd>
+          </button>
         </div>
       </div>
       <div id="shoe-counter">Shoe: 312 / 312 cards</div>
@@ -293,6 +348,24 @@
               <button type="button" id="tool-reload-bankroll-btn" class="settings-action-btn warning">Reload $1,000</button>
             </div>
 
+            <!-- Analytics & Statistics Link -->
+            <div class="setting-item-row">
+              <div class="setting-meta">
+                <span class="setting-title">Analytics &amp; Statistics</span>
+                <span class="setting-description">Inspect your session win rate, streaks, and bankroll curve</span>
+              </div>
+              <button type="button" id="tool-open-stats-btn" class="settings-action-btn">View Analytics Dashboard</button>
+            </div>
+
+            <!-- Controls & Gestures Guide Link -->
+            <div class="setting-item-row">
+              <div class="setting-meta">
+                <span class="setting-title">Controls &amp; Gestures Guide</span>
+                <span class="setting-description">Keyboard shortcuts, mobile touch gestures, and quick actions</span>
+              </div>
+              <button type="button" id="tool-open-shortcuts-btn" class="settings-action-btn">View Controls Guide</button>
+            </div>
+
             <!-- Deck Grid Inspector Link -->
             <div class="setting-item-row">
               <div class="setting-meta">
@@ -308,6 +381,225 @@
         <div class="settings-modal-footer">
           <span class="settings-autosave-tag">&bull; Settings are automatically saved</span>
           <button type="button" id="settings-done-btn" class="casino-btn btn-settings-done">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dedicated Controls, Shortcuts & Gestures Modal Overlay -->
+    <div id="shortcuts-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="shortcuts-modal-title">
+      <div class="settings-backdrop" id="shortcuts-backdrop"></div>
+      <div class="settings-modal-card shortcuts-modal-card">
+        <!-- Modal Header -->
+        <div class="settings-modal-header">
+          <div class="settings-title-group">
+            <div class="settings-icon-badge">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10"></path>
+              </svg>
+            </div>
+            <div>
+              <h2 id="shortcuts-modal-title">Controls &amp; Gestures</h2>
+              <div class="settings-subtitle">Keyboard shortcuts, mobile touch gestures, and fast casino flow</div>
+            </div>
+          </div>
+          <button id="shortcuts-close-btn" class="settings-close-x" aria-label="Close Controls Guide">&times;</button>
+        </div>
+
+        <!-- Modal Body Grid -->
+        <div class="settings-modal-body shortcuts-grid">
+          <!-- Desktop Keyboard Column -->
+          <div class="shortcuts-section">
+            <h3 class="shortcuts-section-title">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10"></path></svg>
+              Desktop Keyboard
+            </h3>
+            <div class="shortcut-list">
+              <div class="shortcut-row">
+                <span class="shortcut-label">Hit (draw card)</span>
+                <span class="shortcut-keys"><kbd class="guide-kbd">H</kbd></span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-label">Stand (end turn)</span>
+                <span class="shortcut-keys"><kbd class="guide-kbd">S</kbd></span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-label">Double Down (2x &amp; 1 card)</span>
+                <span class="shortcut-keys"><kbd class="guide-kbd">D</kbd></span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-label">Split Paired Hand</span>
+                <span class="shortcut-keys"><kbd class="guide-kbd">P</kbd></span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-label">Late Surrender</span>
+                <span class="shortcut-keys"><kbd class="guide-kbd">U</kbd></span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-label">Deal / Confirm</span>
+                <span class="shortcut-keys"><kbd class="guide-kbd">Space</kbd> or <kbd class="guide-kbd">Enter</kbd></span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-label">Rebet Last Bet</span>
+                <span class="shortcut-keys"><kbd class="guide-kbd">R</kbd></span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-label">Rebet &amp; Deal</span>
+                <span class="shortcut-keys"><kbd class="guide-kbd">&#x21E7; Shift</kbd> + <kbd class="guide-kbd">R</kbd></span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-label">Double Current Bet (2&times;)</span>
+                <span class="shortcut-keys"><kbd class="guide-kbd">X</kbd> or <kbd class="guide-kbd">2</kbd></span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-label">Clear Current Bet</span>
+                <span class="shortcut-keys"><kbd class="guide-kbd">C</kbd> or <kbd class="guide-kbd">&#x232B;</kbd></span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-label">Toggle Stats &amp; Analytics</span>
+                <span class="shortcut-keys"><kbd class="guide-kbd">T</kbd></span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-label">Chip Bets ($1 &ndash; $1,000)</span>
+                <span class="shortcut-keys"><kbd class="guide-kbd">1</kbd> <kbd class="guide-kbd">5</kbd> <kbd class="guide-kbd">3</kbd> <kbd class="guide-kbd">4</kbd> <kbd class="guide-kbd">6</kbd> <kbd class="guide-kbd">7</kbd></span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-label">Insurance (Yes / No)</span>
+                <span class="shortcut-keys"><kbd class="guide-kbd">Y</kbd> / <kbd class="guide-kbd">N</kbd></span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-label">Close Menus</span>
+                <span class="shortcut-keys"><kbd class="guide-kbd">Esc</kbd></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mobile Touch Gestures Column -->
+          <div class="shortcuts-section">
+            <h3 class="shortcuts-section-title">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12" y2="18"></line></svg>
+              Mobile &amp; Touch Gestures
+            </h3>
+            <div class="gesture-card-list">
+              <div class="gesture-card">
+                <div class="gesture-icon">⬇</div>
+                <div class="gesture-info">
+                  <strong>Swipe Down</strong>
+                  <span>Hit &mdash; request an additional card</span>
+                </div>
+              </div>
+              <div class="gesture-card">
+                <div class="gesture-icon">➡</div>
+                <div class="gesture-info">
+                  <strong>Swipe Across (Left/Right)</strong>
+                  <span>Stand &mdash; lock in current hand</span>
+                </div>
+              </div>
+              <div class="gesture-card">
+                <div class="gesture-icon">⬆</div>
+                <div class="gesture-info">
+                  <strong>Swipe Up</strong>
+                  <span>Double Down &mdash; double bet for one final card</span>
+                </div>
+              </div>
+              <div class="gesture-card">
+                <div class="gesture-icon">✌</div>
+                <div class="gesture-info">
+                  <strong>Two-Finger Tap</strong>
+                  <span>Split &mdash; divide matching pair into 2 hands</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="shortcut-tip-box">
+              <span class="tip-badge">3D Casino Tip</span>
+              <span>You can tap physical 3D chip stacks directly on the wooden table tray to bet!</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="settings-modal-footer">
+          <span class="settings-autosave-tag">&bull; Press <kbd class="guide-kbd">?</kbd> anytime to open this guide</span>
+          <button type="button" id="shortcuts-done-btn" class="casino-btn btn-settings-done">Got It</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dedicated Player Analytics & Stats Modal Overlay -->
+    <div id="stats-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="stats-modal-title">
+      <div class="settings-backdrop" id="stats-backdrop"></div>
+      <div class="settings-modal-card stats-modal-card">
+        <!-- Modal Header -->
+        <div class="settings-modal-header">
+          <div class="settings-title-group">
+            <div class="settings-icon-badge stats-badge">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="20" x2="18" y2="10"></line>
+                <line x1="12" y1="20" x2="12" y2="4"></line>
+                <line x1="6" y1="20" x2="6" y2="14"></line>
+              </svg>
+            </div>
+            <div>
+              <h2 id="stats-modal-title">Player Analytics &amp; Stats</h2>
+              <div class="settings-subtitle">Session performance, win rate, and bankroll trajectory</div>
+            </div>
+          </div>
+          <button id="stats-close-btn" class="settings-close-x" aria-label="Close Statistics">&times;</button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="settings-modal-body stats-body">
+          <!-- KPI Metrics Grid -->
+          <div class="stats-kpi-grid">
+            <div class="kpi-card">
+              <span class="kpi-title">Net Profit / Loss</span>
+              <span id="kpi-net-profit" class="kpi-value profit-neutral">$0</span>
+              <span id="kpi-total-wagered" class="kpi-sub">Total Wagered: $0</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-title">Win Rate</span>
+              <span id="kpi-win-rate" class="kpi-value">0%</span>
+              <span id="kpi-record" class="kpi-sub">0W &bull; 0L &bull; 0P</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-title">Blackjacks</span>
+              <span id="kpi-blackjacks" class="kpi-value">0</span>
+              <span id="kpi-bj-freq" class="kpi-sub">0.0% of hands</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-title">Winning Streak</span>
+              <span id="kpi-streak" class="kpi-value">0</span>
+              <span id="kpi-best-streak" class="kpi-sub">Best Streak: 0</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-title">Biggest Single Win</span>
+              <span id="kpi-biggest-win" class="kpi-value">$0</span>
+              <span class="kpi-sub">Highest round payout</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-title">Total Hands</span>
+              <span id="kpi-hands-played" class="kpi-value">0</span>
+              <span class="kpi-sub">Rounds completed</span>
+            </div>
+          </div>
+
+          <!-- Trajectory Chart Section -->
+          <div class="stats-chart-section">
+            <div class="stats-chart-header">
+              <span class="stats-chart-title">Bankroll Progression Curve</span>
+              <span class="stats-chart-tag">&bull; Real-Time Trajectory</span>
+            </div>
+            <div class="stats-chart-container">
+              <canvas id="stats-chart-canvas"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="settings-modal-footer">
+          <button type="button" id="stats-reset-btn" class="settings-action-btn warning" title="Clear all session statistics">Reset Analytics</button>
+          <button type="button" id="stats-done-btn" class="casino-btn btn-settings-done">Done</button>
         </div>
       </div>
     </div>

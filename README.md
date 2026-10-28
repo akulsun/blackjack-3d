@@ -14,7 +14,10 @@ An immersive, real-time 3D Blackjack game built with **Three.js** and **Vite**. 
   - **Shoe Configuration**: 1, 2, 4, 6, or 8 deck shoe with realistic cut-card penetration and Fisher-Yates shuffling.
   - **Player Actions**: Hit, Stand, Double Down, Split (up to 3 splits / 4 hands), Late Surrender, and 2:1 Insurance against dealer Aces.
 - **Synthesized Web Audio**: Procedural sound effects using the Web Audio API for card sliding, felt taps, chip placement, winning fanfares, and busts — zero external audio assets required.
-- **Table HUD & Settings Modal**: Responsive controls for denomination bets ($1, $5, $25, $100), bankroll reload, animation speed adjustment (Normal, Fast, Turbo), and audio controls.
+- **Fast Casino Flow & Quality of Life**: Instant "Rebet" and "Rebet & Deal" one-click actions, 2× bet multiplier, full desktop keyboard shortcuts (`Space`, `H`, `S`, `D`, `P`, `U`, `R`, `X`, `C`, `1-4`, `Y/N`), intuitive mobile touch gestures (Swipe Down = Hit, Swipe Across = Stand, Swipe Up = Double, Two-finger Tap = Split), and an interactive Controls Guide modal.
+- **Player Analytics & Bankroll Progression**: Comprehensive statistics dashboard tracking total hands played, win rate percentage, natural blackjack frequency, current & best winning streaks, highest single payout, and an interactive real-time canvas bankroll trajectory chart.
+- **High-Roller Chip Denominations & Interactive Betting**: Extended chip stack array with $1, $5, $25, $100, $500, and $1,000 chips. Supports direct 3D raycast interaction to click table chip stacks to bet, and click active bets in the betting circle to remove or adjust chips.
+- **Table HUD & Settings Modal**: Responsive controls for denomination bets ($1, $5, $25, $100, $500, $1,000), bankroll reload, animation speed adjustment (Normal, Fast, Turbo), and audio controls.
 - **Card Inspector Grid**: Dedicated `/debug.html` grid displaying all 52 high-resolution procedural card faces with filtering.
 
 ---

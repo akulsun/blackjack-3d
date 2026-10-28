@@ -34,8 +34,16 @@ import {
   resetBankroll,
   createChipMesh,
   CHIP_DENOMS,
-  CHIP_CONFIGS
+  CHIP_CONFIGS,
+  decomposeBet
 } from './chips.js';
+import {
+  loadStats,
+  resetStats,
+  recordRoundOutcome,
+  calculateWinRate,
+  renderTrajectoryChart
+} from './stats.js';
 
 // 1. Scene & Environment
 const scene = new THREE.Scene();
@@ -166,6 +174,11 @@ function switchCameraView(targetKey) {
 
 // 7. UI Elements
 const dealBtn = document.getElementById('deal-btn');
+const dealBtnText = document.getElementById('deal-btn-text');
+const dealKbdHint = document.getElementById('deal-kbd-hint');
+const rebetBtn = document.getElementById('rebet-btn');
+const rebetDealBtn = document.getElementById('rebet-deal-btn');
+const doubleBetBtn = document.getElementById('double-bet-btn');
 const hitBtn = document.getElementById('hit-btn');
 const standBtn = document.getElementById('stand-btn');
 const doubleBtn = document.getElementById('double-btn');
@@ -182,6 +195,36 @@ const insurancePrompt = document.getElementById('insurance-prompt');
 const insureYesBtn = document.getElementById('insure-yes-btn');
 const insureNoBtn = document.getElementById('insure-no-btn');
 const insureCostSpan = document.getElementById('insure-cost');
+
+// Controls & Shortcuts Modal UI
+const shortcutsOpenBtn = document.getElementById('shortcuts-open-btn');
+const shortcutsOverlay = document.getElementById('shortcuts-overlay');
+const shortcutsBackdrop = document.getElementById('shortcuts-backdrop');
+const shortcutsCloseBtn = document.getElementById('shortcuts-close-btn');
+const shortcutsDoneBtn = document.getElementById('shortcuts-done-btn');
+const toolOpenShortcutsBtn = document.getElementById('tool-open-shortcuts-btn');
+const gestureToast = document.getElementById('gesture-toast');
+
+// Player Analytics & Stats Modal UI
+const statsOpenBtn = document.getElementById('stats-open-btn');
+const statsOverlay = document.getElementById('stats-overlay');
+const statsBackdrop = document.getElementById('stats-backdrop');
+const statsCloseBtn = document.getElementById('stats-close-btn');
+const statsDoneBtn = document.getElementById('stats-done-btn');
+const statsResetBtn = document.getElementById('stats-reset-btn');
+const toolOpenStatsBtn = document.getElementById('tool-open-stats-btn');
+const statsChartCanvas = document.getElementById('stats-chart-canvas');
+
+const kpiNetProfit = document.getElementById('kpi-net-profit');
+const kpiTotalWagered = document.getElementById('kpi-total-wagered');
+const kpiWinRate = document.getElementById('kpi-win-rate');
+const kpiRecord = document.getElementById('kpi-record');
+const kpiBlackjacks = document.getElementById('kpi-blackjacks');
+const kpiBjFreq = document.getElementById('kpi-bj-freq');
+const kpiStreak = document.getElementById('kpi-streak');
+const kpiBestStreak = document.getElementById('kpi-best-streak');
+const kpiBiggestWin = document.getElementById('kpi-biggest-win');
+const kpiHandsPlayed = document.getElementById('kpi-hands-played');
 
 // Settings State & Persistence
 const SETTINGS_STORAGE_KEY = 'blackjack_3d_settings';
@@ -372,15 +415,48 @@ function updateBankrollDisplay() {
     }
   }
 
-  // Update Deal button state
+  // Update Deal, Rebet, and Rebet & Deal button states
   if (gameState === 'BETTING') {
     if (currentBet > 0) {
       dealBtn.disabled = false;
-      dealBtn.textContent = `Deal ($${currentBet})`;
+      if (dealBtnText) {
+        dealBtnText.textContent = `Deal ($${currentBet.toLocaleString()})`;
+      } else {
+        dealBtn.textContent = `Deal ($${currentBet.toLocaleString()})`;
+      }
+      if (dealKbdHint) dealKbdHint.classList.remove('hidden');
+      if (rebetBtn) rebetBtn.classList.add('hidden');
+      if (rebetDealBtn) rebetDealBtn.classList.add('hidden');
     } else {
       dealBtn.disabled = true;
-      dealBtn.textContent = 'Place a Bet';
+      if (dealBtnText) {
+        dealBtnText.textContent = 'Place a Bet';
+      } else {
+        dealBtn.textContent = 'Place a Bet';
+      }
+      if (dealKbdHint) dealKbdHint.classList.add('hidden');
+
+      if (lastRoundBet > 0) {
+        if (rebetBtn) {
+          rebetBtn.classList.remove('hidden');
+          rebetBtn.disabled = bankroll < lastRoundBet;
+          const rebetLabel = rebetBtn.querySelector('.btn-text');
+          if (rebetLabel) {
+            rebetLabel.textContent = `Rebet ($${lastRoundBet.toLocaleString()})`;
+          }
+        }
+        if (rebetDealBtn) {
+          rebetDealBtn.classList.remove('hidden');
+          rebetDealBtn.disabled = bankroll < lastRoundBet;
+        }
+      } else {
+        if (rebetBtn) rebetBtn.classList.add('hidden');
+        if (rebetDealBtn) rebetDealBtn.classList.add('hidden');
+      }
     }
+  } else {
+    if (rebetBtn) rebetBtn.classList.add('hidden');
+    if (rebetDealBtn) rebetDealBtn.classList.add('hidden');
   }
 
   // Update chip button disabled states
@@ -388,6 +464,10 @@ function updateBankrollDisplay() {
     const denom = parseInt(btn.dataset.denom, 10);
     btn.disabled = gameState !== 'BETTING' || bankroll < denom;
   });
+
+  if (doubleBetBtn) {
+    doubleBetBtn.disabled = gameState !== 'BETTING' || currentBet === 0 || bankroll < currentBet;
+  }
 
   if (clearBetBtn) {
     clearBetBtn.disabled = gameState !== 'BETTING' || currentBet === 0;
@@ -408,24 +488,26 @@ const chipTrayGroup = new THREE.Group();
 chipTrayGroup.position.set(0, 0, 0);
 scene.add(chipTrayGroup);
 
-// Tray base plate
-const trayBaseGeo = new THREE.BoxGeometry(0.20, 0.006, 0.065);
+// Tray base plate (Extended to fit all 6 chip stacks $1 through $1,000)
+const trayBaseGeo = new THREE.BoxGeometry(0.31, 0.006, 0.065);
 const trayBaseMat = new THREE.MeshStandardMaterial({
   color: 0x24140b,
   roughness: 0.4,
   metalness: 0.1
 });
 const trayBase = new THREE.Mesh(trayBaseGeo, trayBaseMat);
-trayBase.position.set(0.25, 0.003, 0.86);
+trayBase.position.set(0.28, 0.003, 0.86);
 trayBase.receiveShadow = true;
 chipTrayGroup.add(trayBase);
 
-// Chip stack positions on table
+// Chip stack positions on table ($1, $5, $25, $100, $500, $1,000)
 const stackPositions = {
-  1: new THREE.Vector3(0.18, 0.006, 0.86),
-  5: new THREE.Vector3(0.23, 0.006, 0.86),
-  25: new THREE.Vector3(0.28, 0.006, 0.86),
-  100: new THREE.Vector3(0.33, 0.006, 0.86)
+  1: new THREE.Vector3(0.155, 0.006, 0.86),
+  5: new THREE.Vector3(0.205, 0.006, 0.86),
+  25: new THREE.Vector3(0.255, 0.006, 0.86),
+  100: new THREE.Vector3(0.305, 0.006, 0.86),
+  500: new THREE.Vector3(0.355, 0.006, 0.86),
+  1000: new THREE.Vector3(0.405, 0.006, 0.86)
 };
 
 // Spawn 4 chips in each denomination stack on the table
@@ -509,6 +591,129 @@ function clearBet() {
   betChipMeshes.length = 0;
 }
 
+function handleRebet() {
+  if (gameState !== 'BETTING' || isBusy || lastRoundBet <= 0) return;
+  if (bankroll < lastRoundBet) return;
+
+  // Clear existing bet first if any
+  if (currentBet > 0) {
+    bankroll += currentBet;
+    currentBet = 0;
+    betChipMeshes.forEach((mesh) => {
+      scene.remove(mesh);
+      if (mesh.geometry) mesh.geometry.dispose();
+      if (Array.isArray(mesh.material)) {
+        mesh.material.forEach((m) => m.dispose());
+      }
+    });
+    betChipMeshes.length = 0;
+  }
+
+  bankroll -= lastRoundBet;
+  currentBet = lastRoundBet;
+  saveBankroll(bankroll);
+  updateBankrollDisplay();
+
+  const chips = decomposeBet(lastRoundBet);
+  chips.forEach((denom, i) => {
+    const chipMesh = createChipMesh(denom);
+    const stackIdx = betChipMeshes.length;
+    const chipTargetY = BET_CIRCLE_CENTER.y + stackIdx * 0.0034;
+
+    const jitterX = (Math.random() - 0.5) * 0.004;
+    const jitterZ = (Math.random() - 0.5) * 0.004;
+    const targetPos = new THREE.Vector3(
+      BET_CIRCLE_CENTER.x + jitterX,
+      chipTargetY,
+      BET_CIRCLE_CENTER.z + jitterZ
+    );
+
+    const basePos = stackPositions[denom] || stackPositions[100];
+    const startPos = basePos.clone();
+    startPos.y += 0.015;
+    chipMesh.position.copy(startPos);
+    chipMesh.rotation.y = Math.random() * Math.PI * 2;
+    scene.add(chipMesh);
+    betChipMeshes.push(chipMesh);
+
+    animateCard({
+      mesh: chipMesh,
+      startPos,
+      targetPos,
+      startRotY: chipMesh.rotation.y,
+      targetRotY: chipMesh.rotation.y + (Math.random() - 0.5) * 0.8,
+      arcHeight: 0.045,
+      duration: Math.min(320, 160 + i * 25),
+      onComplete: () => {
+        if (i === 0) playChipClinkSound();
+      }
+    });
+  });
+
+  playChipClinkSound();
+}
+
+function handleRebetAndDeal() {
+  if (gameState !== 'BETTING' || isBusy || lastRoundBet <= 0) return;
+  if (bankroll < lastRoundBet) return;
+
+  handleRebet();
+  setTimeout(() => {
+    if (gameState === 'BETTING' && currentBet > 0 && !isBusy) {
+      dealRound();
+    }
+  }, 220);
+}
+
+function handleDoubleBet() {
+  if (gameState !== 'BETTING' || isBusy || currentBet <= 0) return;
+  if (bankroll < currentBet) return;
+
+  const addAmount = currentBet;
+  bankroll -= addAmount;
+  currentBet += addAmount;
+  saveBankroll(bankroll);
+  updateBankrollDisplay();
+
+  const chips = decomposeBet(addAmount);
+  chips.forEach((denom, i) => {
+    const chipMesh = createChipMesh(denom);
+    const stackIdx = betChipMeshes.length;
+    const chipTargetY = BET_CIRCLE_CENTER.y + stackIdx * 0.0034;
+
+    const jitterX = (Math.random() - 0.5) * 0.004;
+    const jitterZ = (Math.random() - 0.5) * 0.004;
+    const targetPos = new THREE.Vector3(
+      BET_CIRCLE_CENTER.x + jitterX,
+      chipTargetY,
+      BET_CIRCLE_CENTER.z + jitterZ
+    );
+
+    const basePos = stackPositions[denom] || stackPositions[100];
+    const startPos = basePos.clone();
+    startPos.y += 0.015;
+    chipMesh.position.copy(startPos);
+    chipMesh.rotation.y = Math.random() * Math.PI * 2;
+    scene.add(chipMesh);
+    betChipMeshes.push(chipMesh);
+
+    animateCard({
+      mesh: chipMesh,
+      startPos,
+      targetPos,
+      startRotY: chipMesh.rotation.y,
+      targetRotY: chipMesh.rotation.y + (Math.random() - 0.5) * 0.8,
+      arcHeight: 0.045,
+      duration: Math.min(320, 160 + i * 25),
+      onComplete: () => {
+        if (i === 0) playChipClinkSound();
+      }
+    });
+  });
+
+  playChipClinkSound();
+}
+
 // 11. Raycasting for Clicking 3D Chips on the Table
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
@@ -529,6 +734,31 @@ window.addEventListener('pointerdown', (e) => {
   mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(mouse, camera);
 
+  // 1. Check if chips placed in the betting circle were clicked to remove/refund
+  if (betChipMeshes.length > 0) {
+    const circleIntersects = raycaster.intersectObjects(betChipMeshes, true);
+    if (circleIntersects.length > 0) {
+      const topChip = betChipMeshes.pop();
+      if (topChip) {
+        const denom = topChip.userData?.denom || 0;
+        scene.remove(topChip);
+        if (topChip.geometry) topChip.geometry.dispose();
+        if (Array.isArray(topChip.material)) {
+          topChip.material.forEach((m) => m.dispose());
+        }
+
+        bankroll += denom;
+        currentBet = Math.max(0, currentBet - denom);
+        saveBankroll(bankroll);
+        updateBankrollDisplay();
+        playChipClinkSound();
+        showGestureToast(`-$${denom} (Bet: $${currentBet})`);
+        return;
+      }
+    }
+  }
+
+  // 2. Check if chip tray stacks were clicked to add to bet
   const intersects = raycaster.intersectObjects(clickableChipObjects, true);
   if (intersects.length > 0) {
     let obj = intersects[0].object;
@@ -541,7 +771,7 @@ window.addEventListener('pointerdown', (e) => {
   }
 });
 
-// Cursor hover pointer feedback
+// Cursor hover pointer feedback for both chip tray and active bet stack
 window.addEventListener('pointermove', (e) => {
   if (gameState !== 'BETTING' || isBusy) {
     renderer.domElement.style.cursor = 'default';
@@ -551,7 +781,8 @@ window.addEventListener('pointermove', (e) => {
   mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(mouse, camera);
 
-  const intersects = raycaster.intersectObjects(clickableChipObjects, true);
+  const targets = [...clickableChipObjects, ...betChipMeshes];
+  const intersects = raycaster.intersectObjects(targets, true);
   renderer.domElement.style.cursor = intersects.length > 0 ? 'pointer' : 'default';
 });
 
@@ -843,6 +1074,8 @@ function dealRound() {
 
   dealBtn.disabled = true;
   dealBtn.classList.add('hidden');
+  if (rebetBtn) rebetBtn.classList.add('hidden');
+  if (rebetDealBtn) rebetDealBtn.classList.add('hidden');
   bettingControls.classList.add('hidden');
   playerActions.classList.add('hidden');
   hideResultBanner();
@@ -1079,6 +1312,13 @@ function resolveDealerBlackjackRound() {
     bankroll += lastRoundBet;
     saveBankroll(bankroll);
     updateBankrollDisplay();
+    recordRoundOutcome({
+      wager: lastRoundBet,
+      netChange: insuranceBet > 0 ? insProfit : 0,
+      outcome: insuranceBet > 0 && insProfit > 0 ? 'win' : 'push',
+      isBlackjack: true,
+      currentBankroll: bankroll
+    });
     if (insuranceBet > 0) {
       showResultBanner('DEALER BLACKJACK', `Both have Blackjack (Push) &bull; Insurance Won (+$${insProfit})`, 'win');
     } else {
@@ -1086,8 +1326,15 @@ function resolveDealerBlackjackRound() {
     }
   } else {
     // Player does not have Blackjack: main bet lost
+    const net = (insuranceBet > 0 ? insProfit : 0) - lastRoundBet;
+    recordRoundOutcome({
+      wager: lastRoundBet,
+      netChange: net,
+      outcome: net > 0 ? 'win' : net === 0 ? 'push' : 'loss',
+      isBlackjack: false,
+      currentBankroll: bankroll
+    });
     if (insuranceBet > 0) {
-      const net = insProfit - lastRoundBet;
       const type = net > 0 ? 'win' : net === 0 ? 'push' : 'loss';
       showResultBanner('DEALER BLACKJACK', `Dealer Wins Hand (-$${lastRoundBet}) &bull; Insurance Won (+$${insProfit})`, type);
     } else {
@@ -1130,6 +1377,13 @@ function checkNaturalBlackjackNoPeek() {
       bankroll += lastRoundBet + profit;
       saveBankroll(bankroll);
       updateBankrollDisplay();
+      recordRoundOutcome({
+        wager: lastRoundBet,
+        netChange: profit,
+        outcome: 'bj',
+        isBlackjack: true,
+        currentBankroll: bankroll
+      });
       playWinSound();
       showResultBanner('BLACKJACK!', `Player wins ${settings.blackjackPayout} (+$${profit})`, 'win');
       endRound();
@@ -1612,6 +1866,13 @@ function handlePlayerSurrender() {
   bankroll += refund;
   saveBankroll(bankroll);
   updateBankrollDisplay();
+  recordRoundOutcome({
+    wager: hand.bet,
+    netChange: -forfeited,
+    outcome: 'loss',
+    isBlackjack: false,
+    currentBankroll: bankroll
+  });
   playChipCollectSound();
 
   revealDealerHoleCard(() => {
@@ -1744,6 +2005,20 @@ function resolveRound() {
   saveBankroll(bankroll);
   updateBankrollDisplay();
 
+  const totalWager = playerHands.reduce((acc, h) => acc + h.bet, 0);
+  const hadBlackjack = playerHands.some(
+    (h) => determineOutcome(h.cards.map((c) => c.data), dealerHand.map((c) => c.data), isMultiHand) === 'player_blackjack'
+  );
+  const roundType = netGain > 0 ? (hadBlackjack ? 'bj' : 'win') : netGain < 0 ? 'loss' : 'push';
+
+  recordRoundOutcome({
+    wager: totalWager,
+    netChange: netGain,
+    outcome: roundType,
+    isBlackjack: hadBlackjack,
+    currentBankroll: bankroll
+  });
+
   if (netGain > 0) {
     playWinSound();
     showResultBanner(
@@ -1856,42 +2131,438 @@ if (insureNoBtn) {
   insureNoBtn.addEventListener('click', handleDeclineInsurance);
 }
 
-// Keyboard shortcuts during BETTING phase to easily test game situations:
-// 's': player pair of 8s (split test)
-// 'a': player pair of Aces (split aces test)
-// 'i': dealer shows Ace & has Blackjack (Insurance + Peek + Dealer BJ)
-// 'o': dealer shows Ace & does NOT have BJ (Insurance + Peek + No BJ)
-// 't': dealer shows 10 & has Blackjack (Peek + Dealer BJ)
-// 'n': dealer shows 10 & does NOT have BJ (Peek + No BJ)
-// 'u': late surrender test (player gets 16 vs dealer 10, peek confirms no BJ)
+// Rebet, Rebet & Deal, and 2x Double Bet Action Listeners
+if (rebetBtn) {
+  rebetBtn.addEventListener('click', handleRebet);
+}
+if (rebetDealBtn) {
+  rebetDealBtn.addEventListener('click', handleRebetAndDeal);
+}
+if (doubleBetBtn) {
+  doubleBetBtn.addEventListener('click', handleDoubleBet);
+}
+
+// Controls & Shortcuts Modal Management
+function openShortcutsModal() {
+  if (shortcutsOverlay) {
+    shortcutsOverlay.classList.remove('hidden');
+  }
+}
+
+function closeShortcutsModal() {
+  if (shortcutsOverlay) {
+    shortcutsOverlay.classList.add('hidden');
+  }
+}
+
+function toggleShortcutsModal() {
+  if (!shortcutsOverlay) return;
+  if (shortcutsOverlay.classList.contains('hidden')) {
+    openShortcutsModal();
+  } else {
+    closeShortcutsModal();
+  }
+}
+
+if (shortcutsOpenBtn) {
+  shortcutsOpenBtn.addEventListener('click', openShortcutsModal);
+}
+if (shortcutsCloseBtn) {
+  shortcutsCloseBtn.addEventListener('click', closeShortcutsModal);
+}
+if (shortcutsBackdrop) {
+  shortcutsBackdrop.addEventListener('click', closeShortcutsModal);
+}
+if (shortcutsDoneBtn) {
+  shortcutsDoneBtn.addEventListener('click', closeShortcutsModal);
+}
+if (toolOpenShortcutsBtn) {
+  toolOpenShortcutsBtn.addEventListener('click', () => {
+    closeSettingsMenu();
+    openShortcutsModal();
+  });
+}
+
+// Player Analytics & Stats Modal Management
+function updateStatsUI() {
+  const stats = loadStats();
+  if (kpiNetProfit) {
+    const isPos = stats.netProfit > 0;
+    const isNeg = stats.netProfit < 0;
+    kpiNetProfit.textContent = `${isPos ? '+' : ''}$${stats.netProfit.toLocaleString()}`;
+    kpiNetProfit.className = `kpi-value ${isPos ? 'profit-positive' : isNeg ? 'profit-negative' : 'profit-neutral'}`;
+  }
+  if (kpiTotalWagered) {
+    kpiTotalWagered.textContent = `Total Wagered: $${stats.totalWagered.toLocaleString()}`;
+  }
+  if (kpiWinRate) {
+    const rate = calculateWinRate(stats);
+    kpiWinRate.textContent = `${rate}%`;
+  }
+  if (kpiRecord) {
+    kpiRecord.textContent = `${stats.handsWon}W • ${stats.handsLost}L • ${stats.handsPushed}P`;
+  }
+  if (kpiBlackjacks) {
+    kpiBlackjacks.textContent = stats.blackjacks.toString();
+  }
+  if (kpiBjFreq) {
+    const freq = stats.handsPlayed > 0 ? ((stats.blackjacks / stats.handsPlayed) * 100).toFixed(1) : '0.0';
+    kpiBjFreq.textContent = `${freq}% of hands`;
+  }
+  if (kpiStreak) {
+    kpiStreak.textContent = stats.currentStreak > 0 ? `+${stats.currentStreak} 🔥` : stats.currentStreak < 0 ? `${stats.currentStreak} ❄️` : '0';
+  }
+  if (kpiBestStreak) {
+    kpiBestStreak.textContent = `Best Streak: ${stats.bestStreak}`;
+  }
+  if (kpiBiggestWin) {
+    kpiBiggestWin.textContent = `+$${stats.biggestWin.toLocaleString()}`;
+  }
+  if (kpiHandsPlayed) {
+    kpiHandsPlayed.textContent = stats.handsPlayed.toLocaleString();
+  }
+
+  if (statsChartCanvas) {
+    renderTrajectoryChart(statsChartCanvas, stats);
+  }
+}
+
+function openStatsModal() {
+  if (statsOverlay) {
+    statsOverlay.classList.remove('hidden');
+    updateStatsUI();
+  }
+}
+
+function closeStatsModal() {
+  if (statsOverlay) {
+    statsOverlay.classList.add('hidden');
+  }
+}
+
+function toggleStatsModal() {
+  if (!statsOverlay) return;
+  if (statsOverlay.classList.contains('hidden')) {
+    openStatsModal();
+  } else {
+    closeStatsModal();
+  }
+}
+
+if (statsOpenBtn) {
+  statsOpenBtn.addEventListener('click', openStatsModal);
+}
+if (statsCloseBtn) {
+  statsCloseBtn.addEventListener('click', closeStatsModal);
+}
+if (statsBackdrop) {
+  statsBackdrop.addEventListener('click', closeStatsModal);
+}
+if (statsDoneBtn) {
+  statsDoneBtn.addEventListener('click', closeStatsModal);
+}
+if (toolOpenStatsBtn) {
+  toolOpenStatsBtn.addEventListener('click', () => {
+    closeSettingsMenu();
+    openStatsModal();
+  });
+}
+if (statsResetBtn) {
+  statsResetBtn.addEventListener('click', () => {
+    resetStats();
+    updateStatsUI();
+    showGestureToast('Analytics Reset ✓');
+  });
+}
+
+// Floating Toast / Gesture Feedback
+let gestureToastTimer = null;
+function showGestureToast(msg) {
+  if (!gestureToast) return;
+  gestureToast.textContent = msg;
+  gestureToast.classList.remove('hidden');
+  gestureToast.classList.remove('toast-fade');
+
+  if (navigator.vibrate) {
+    try {
+      navigator.vibrate(15);
+    } catch (e) {
+      // Haptics not allowed or unsupported
+    }
+  }
+
+  if (gestureToastTimer) {
+    clearTimeout(gestureToastTimer);
+  }
+  gestureToastTimer = setTimeout(() => {
+    gestureToast.classList.add('toast-fade');
+    gestureToastTimer = setTimeout(() => {
+      gestureToast.classList.add('hidden');
+      gestureToast.classList.remove('toast-fade');
+    }, 320);
+  }, 700);
+}
+
+// Mobile / Tablet Touch Gestures on Table Felt
+let touchStartX = 0;
+let touchStartY = 0;
+let touchStartTime = 0;
+let touchFingerCount = 0;
+
+window.addEventListener(
+  'touchstart',
+  (e) => {
+    // Ignore touches starting inside interactive HUD controls or modals
+    if (
+      e.target.closest(
+        'button, input, select, a, #settings-overlay, #shortcuts-overlay, #action-bar, #top-nav-bar, #bankroll-card'
+      )
+    ) {
+      touchFingerCount = 0;
+      return;
+    }
+
+    touchFingerCount = e.touches.length;
+    if (e.touches.length === 1) {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+      touchStartTime = performance.now();
+    } else if (e.touches.length === 2) {
+      touchStartTime = performance.now();
+    }
+  },
+  { passive: true }
+);
+
+window.addEventListener(
+  'touchend',
+  (e) => {
+    if (gameState !== 'PLAYER_TURN' || isBusy) {
+      touchFingerCount = 0;
+      return;
+    }
+
+    const elapsed = performance.now() - touchStartTime;
+
+    // Two-finger tap within 400ms -> Split
+    if (touchFingerCount === 2 && elapsed < 400) {
+      if (splitBtn && !splitBtn.disabled && !splitBtn.classList.contains('hidden')) {
+        showGestureToast('Split ✌');
+        handlePlayerSplit();
+      }
+      touchFingerCount = 0;
+      return;
+    }
+
+    if (touchFingerCount === 1 && elapsed < 650) {
+      const touch = e.changedTouches[0];
+      if (!touch) return;
+      const deltaX = touch.clientX - touchStartX;
+      const deltaY = touch.clientY - touchStartY;
+      const absX = Math.abs(deltaX);
+      const absY = Math.abs(deltaY);
+      const minDistance = 35;
+
+      if (absY > absX && absY > minDistance) {
+        if (deltaY > 0) {
+          // Swipe Down -> Hit
+          if (hitBtn && !hitBtn.disabled && !playerActions.classList.contains('hidden')) {
+            showGestureToast('Hit ⬇');
+            handlePlayerHit();
+          }
+        } else {
+          // Swipe Up -> Double Down
+          if (doubleBtn && !doubleBtn.disabled && !doubleBtn.classList.contains('hidden')) {
+            showGestureToast('Double ⬆');
+            handlePlayerDouble();
+          }
+        }
+      } else if (absX > absY && absX > minDistance) {
+        // Swipe Horizontal -> Stand
+        if (standBtn && !standBtn.disabled && !playerActions.classList.contains('hidden')) {
+          showGestureToast('Stand ➡');
+          handlePlayerStand();
+        }
+      }
+    }
+    touchFingerCount = 0;
+  },
+  { passive: true }
+);
+
+// Comprehensive Keyboard Shortcuts
 window.addEventListener('keydown', (e) => {
-  if (gameState !== 'BETTING' || isBusy) return;
+  // Ignore keystrokes inside form fields
+  if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) {
+    return;
+  }
+
   const key = e.key.toLowerCase();
-  if (key === 's') {
-    forceNextPairRank = '8';
-  } else if (key === 'a') {
-    forceNextPairRank = 'A';
-  } else if (key === 'i') {
-    forceDealerUpRank = 'A';
-    forceDealerHoleRank = 'K';
-  } else if (key === 'o') {
-    forceDealerUpRank = 'A';
-    forceDealerHoleRank = '7';
-  } else if (key === 't') {
-    forceDealerUpRank = '10';
-    forceDealerHoleRank = 'A';
-  } else if (key === 'n') {
-    forceDealerUpRank = '10';
-    forceDealerHoleRank = '8';
-  } else if (key === 'u') {
-    forcePlayerCards = ['10', '6'];
-    forceDealerUpRank = '10';
-    forceDealerHoleRank = '7';
-  } else if (key === 'h') {
-    // 'h': soft 17 dealer test (dealer gets 6 upcard & Ace hole = soft 17, player gets 18)
-    forcePlayerCards = ['10', '8'];
-    forceDealerUpRank = '6';
-    forceDealerHoleRank = 'A';
+
+  // Escape key: close whichever modal is open
+  if (e.key === 'Escape') {
+    if (statsOverlay && !statsOverlay.classList.contains('hidden')) {
+      closeStatsModal();
+      return;
+    }
+    if (shortcutsOverlay && !shortcutsOverlay.classList.contains('hidden')) {
+      closeShortcutsModal();
+      return;
+    }
+    if (settingsOverlay && !settingsOverlay.classList.contains('hidden')) {
+      closeSettingsMenu();
+      return;
+    }
+  }
+
+  // 'T' key: toggle stats and analytics dashboard
+  if (key === 't' && !e.altKey && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    toggleStatsModal();
+    return;
+  }
+
+  // '?' key: toggle shortcuts and gestures guide
+  if (e.key === '?' || (e.key === '/' && !e.ctrlKey && !e.metaKey)) {
+    e.preventDefault();
+    toggleShortcutsModal();
+    return;
+  }
+
+  // Developer simulation cheats (Require Alt + key to avoid gameplay key collisions)
+  if (e.altKey && gameState === 'BETTING') {
+    if (key === 's') { forceNextPairRank = '8'; return; }
+    if (key === 'a') { forceNextPairRank = 'A'; return; }
+    if (key === 'i') { forceDealerUpRank = 'A'; forceDealerHoleRank = 'K'; return; }
+    if (key === 'o') { forceDealerUpRank = 'A'; forceDealerHoleRank = '7'; return; }
+    if (key === 't') { forceDealerUpRank = '10'; forceDealerHoleRank = 'A'; return; }
+    if (key === 'n') { forceDealerUpRank = '10'; forceDealerHoleRank = '8'; return; }
+    if (key === 'u') { forcePlayerCards = ['10', '6']; forceDealerUpRank = '10'; forceDealerHoleRank = '7'; return; }
+    if (key === 'h') { forcePlayerCards = ['10', '8']; forceDealerUpRank = '6'; forceDealerHoleRank = 'A'; return; }
+  }
+
+  // Insurance Offer Phase (Y / N)
+  if (insurancePrompt && !insurancePrompt.classList.contains('hidden')) {
+    if (key === 'y' && insureYesBtn && !insureYesBtn.disabled) {
+      e.preventDefault();
+      handleTakeInsurance();
+      return;
+    }
+    if (key === 'n' && insureNoBtn && !insureNoBtn.disabled) {
+      e.preventDefault();
+      handleDeclineInsurance();
+      return;
+    }
+  }
+
+  // BETTING Phase Controls
+  if (gameState === 'BETTING' && !isBusy) {
+    // Deal or Rebet & Deal (Space or Enter)
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      if (currentBet > 0) {
+        dealRound();
+      } else if (lastRoundBet > 0 && bankroll >= lastRoundBet) {
+        handleRebetAndDeal();
+      }
+      return;
+    }
+
+    // Rebet (R) / Rebet & Deal (Shift + R)
+    if (key === 'r') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        handleRebetAndDeal();
+      } else {
+        handleRebet();
+      }
+      return;
+    }
+
+    // Double Current Bet (X or D)
+    if (key === 'x' || key === 'd') {
+      e.preventDefault();
+      handleDoubleBet();
+      return;
+    }
+
+    // Clear Bet (C or Backspace)
+    if (key === 'c' || e.key === 'Backspace') {
+      e.preventDefault();
+      clearBet();
+      return;
+    }
+
+    // Number keys for chip denominations:
+    // '1' -> $1, '2' or '5' -> $5, '3' -> $25, '4' or '0' -> $100
+    if (e.key === '1') {
+      e.preventDefault();
+      addBet(1);
+      return;
+    }
+    if (e.key === '5' || e.key === '2') {
+      e.preventDefault();
+      addBet(5);
+      return;
+    }
+    if (e.key === '3') {
+      e.preventDefault();
+      addBet(25);
+      return;
+    }
+    if (e.key === '4' || e.key === '0') {
+      e.preventDefault();
+      addBet(100);
+      return;
+    }
+    if (e.key === '6') {
+      e.preventDefault();
+      addBet(500);
+      return;
+    }
+    if (e.key === '7') {
+      e.preventDefault();
+      addBet(1000);
+      return;
+    }
+  }
+
+  // PLAYER_TURN Phase Controls
+  if (gameState === 'PLAYER_TURN' && !isBusy) {
+    // Hit (H)
+    if (key === 'h' && hitBtn && !hitBtn.disabled && !playerActions.classList.contains('hidden')) {
+      e.preventDefault();
+      handlePlayerHit();
+      return;
+    }
+
+    // Stand (S or Space)
+    if ((key === 's' || e.key === ' ') && standBtn && !standBtn.disabled && !playerActions.classList.contains('hidden')) {
+      e.preventDefault();
+      handlePlayerStand();
+      return;
+    }
+
+    // Double Down (D)
+    if (key === 'd' && doubleBtn && !doubleBtn.disabled && !doubleBtn.classList.contains('hidden')) {
+      e.preventDefault();
+      handlePlayerDouble();
+      return;
+    }
+
+    // Split Hand (P)
+    if (key === 'p' && splitBtn && !splitBtn.disabled && !splitBtn.classList.contains('hidden')) {
+      e.preventDefault();
+      handlePlayerSplit();
+      return;
+    }
+
+    // Late Surrender (U)
+    if (key === 'u' && surrenderBtn && !surrenderBtn.disabled && !surrenderBtn.classList.contains('hidden')) {
+      e.preventDefault();
+      handlePlayerSurrender();
+      return;
+    }
   }
 });
 
@@ -2191,6 +2862,10 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(width, height);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  if (statsOverlay && !statsOverlay.classList.contains('hidden')) {
+    updateStatsUI();
+  }
 });
 
 // 20. Animation Loop

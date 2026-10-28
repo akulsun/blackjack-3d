@@ -1126,6 +1126,18 @@ html, body {
   border-color: #facc15;
 }
 
+.chip-500 {
+  background: #6b21a8;
+  color: #ffffff;
+  border-color: #c084fc;
+}
+
+.chip-1000 {
+  background: #c2410c;
+  color: #fef08a;
+  border-color: #facc15;
+}
+
 .clear-btn {
   background: rgba(40, 15, 15, 0.85);
   color: #ff9999;
@@ -1148,4 +1160,393 @@ html, body {
 .clear-btn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+}
+
+/* ---------------- Betting Action Buttons (Rebet, Rebet & Deal, 2x Bet) ---------------- */
+.betting-action-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-rebet {
+  background: linear-gradient(180deg, #372a1a 0%, #1f170c 100%);
+  border-color: #bfa15f;
+  color: #faeec7;
+  padding: 12px 24px;
+}
+
+.btn-rebet:hover:not(:disabled) {
+  background: linear-gradient(180deg, #4d3b25 0%, #2b2011 100%);
+  border-color: #f7d68a;
+  color: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), 0 0 20px rgba(212, 175, 55, 0.4);
+}
+
+.btn-rebet-deal {
+  background: linear-gradient(180deg, #8a5812 0%, #523307 100%);
+  border-color: #fbbf24;
+  color: #fffbeb;
+  padding: 12px 24px;
+}
+
+.btn-rebet-deal:hover:not(:disabled) {
+  background: linear-gradient(180deg, #a66a16 0%, #694109 100%);
+  border-color: #fde68a;
+  color: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), 0 0 24px rgba(245, 158, 11, 0.5);
+}
+
+.double-bet-btn {
+  background: rgba(26, 36, 60, 0.85);
+  color: #93c5fd;
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  font-size: 13px;
+  font-weight: 800;
+  padding: 8px 12px;
+  border-radius: 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.double-bet-btn:hover:not(:disabled) {
+  background: rgba(37, 99, 235, 0.9);
+  color: #ffffff;
+  border-color: #60a5fa;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+  transform: translateY(-1px);
+}
+
+.double-bet-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.double-bet-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Keyboard hint tag on casino buttons */
+.kbd-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 3px 6px;
+  margin-left: 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.45);
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  vertical-align: middle;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+}
+
+/* Floating gesture & toast indicator */
+.gesture-toast {
+  position: fixed;
+  top: 74px;
+  left: 50%;
+  transform: translateX(-50%) translateY(0);
+  background: rgba(14, 18, 27, 0.92);
+  color: #fde68a;
+  border: 1px solid rgba(245, 158, 11, 0.6);
+  padding: 8px 20px;
+  border-radius: 24px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.75), 0 0 18px rgba(245, 158, 11, 0.3);
+  backdrop-filter: blur(10px);
+  z-index: 200;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  opacity: 1;
+}
+
+.gesture-toast.toast-fade {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-12px);
+}
+
+/* ---------------- Controls & Shortcuts Modal ---------------- */
+.shortcuts-modal-card {
+  max-width: 720px !important;
+}
+
+.shortcuts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  padding: 16px 24px !important;
+}
+
+.shortcuts-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #d4af37;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+}
+
+.shortcut-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.shortcut-keys {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.guide-kbd {
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 4px;
+  background: rgba(20, 24, 34, 0.9);
+  color: #f7e7a6;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.gesture-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gesture-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+}
+
+.gesture-icon {
+  font-size: 18px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(212, 175, 55, 0.12);
+  color: #facc15;
+  border-radius: 6px;
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  flex-shrink: 0;
+}
+
+.gesture-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gesture-info strong {
+  font-size: 12px;
+  color: #ffffff;
+}
+
+.gesture-info span {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.shortcut-tip-box {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.4);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.tip-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #93c5fd;
+  letter-spacing: 0.5px;
+}
+
+@media (max-width: 768px) {
+  .shortcuts-grid {
+    grid-template-columns: 1fr;
+  }
+  .kbd-hint {
+    display: none;
+  }
+  .betting-action-group {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .btn-rebet,
+  .btn-rebet-deal {
+    padding: 10px 18px;
+    font-size: 14px;
+  }
+}
+
+/* ---------------- Player Analytics & Stats Modal ---------------- */
+.stats-modal-card {
+  max-width: 700px !important;
+}
+
+.stats-badge {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: #10b981 !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+}
+
+.stats-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 18px 24px !important;
+}
+
+.stats-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.kpi-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.kpi-card:hover {
+  border-color: rgba(212, 175, 55, 0.3);
+  transform: translateY(-1px);
+}
+
+.kpi-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.kpi-value {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  color: #ffffff;
+}
+
+.kpi-sub {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.profit-positive {
+  color: #10b981 !important;
+}
+
+.profit-negative {
+  color: #ef4444 !important;
+}
+
+.profit-neutral {
+  color: #f7e7a6 !important;
+}
+
+.stats-chart-section {
+  background: rgba(13, 17, 26, 0.95);
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stats-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stats-chart-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #d4af37;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.stats-chart-tag {
+  font-size: 11px;
+  font-weight: 600;
+  color: #10b981;
+}
+
+.stats-chart-container {
+  width: 100%;
+  height: 180px;
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0d111a;
+}
+
+#stats-chart-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+@media (max-width: 640px) {
+  .stats-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }

@@ -6,7 +6,7 @@ import * as THREE from 'three';
  * Procedural canvas textures with no external image files.
  */
 
-export const CHIP_DENOMS = [1, 5, 25, 100];
+export const CHIP_DENOMS = [1, 5, 25, 100, 500, 1000];
 
 export const CHIP_CONFIGS = {
   1: {
@@ -40,6 +40,22 @@ export const CHIP_CONFIGS = {
     stripeColor: '#facc15',
     textColor: '#facc15',
     ringColor: '#d4af37'
+  },
+  500: {
+    value: 500,
+    label: '$500',
+    baseColor: '#6b21a8',
+    stripeColor: '#fde047',
+    textColor: '#ffffff',
+    ringColor: '#c084fc'
+  },
+  1000: {
+    value: 1000,
+    label: '$1000',
+    baseColor: '#c2410c',
+    stripeColor: '#facc15',
+    textColor: '#fef08a',
+    ringColor: '#fb923c'
   }
 };
 
@@ -119,7 +135,7 @@ function createChipFaceTexture(denom) {
   ctx.stroke();
 
   // 6. Denomination Text
-  ctx.font = `bold ${denom >= 100 ? 56 : 64}px "Arial", sans-serif`;
+  ctx.font = `bold ${denom >= 1000 ? 44 : denom >= 100 ? 54 : 64}px "Arial", sans-serif`;
   ctx.fillStyle = config.textColor;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -254,3 +270,28 @@ export function resetBankroll() {
   saveBankroll(DEFAULT_BANKROLL);
   return DEFAULT_BANKROLL;
 }
+
+/**
+ * Decomposes an integer dollar amount into standard chip denominations
+ * in descending order: $100, $25, $5, $1.
+ * @param {number} amount
+ * @param {number} [maxChips=20]
+ * @returns {number[]} array of chip denominations
+ */
+export function decomposeBet(amount, maxChips = 24) {
+  let remaining = Math.max(0, Math.floor(amount));
+  const denoms = [1000, 500, 100, 25, 5, 1];
+  const result = [];
+
+  for (const d of denoms) {
+    const count = Math.floor(remaining / d);
+    for (let i = 0; i < count; i++) {
+      if (result.length < maxChips) {
+        result.push(d);
+      }
+    }
+    remaining %= d;
+  }
+  return result;
+}
+
