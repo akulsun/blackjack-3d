@@ -136,10 +136,10 @@ const camera = new THREE.PerspectiveCamera(
   100
 );
 // Closer default seated position and slightly higher elevation for optimal card visibility
-camera.position.set(0, 0.74, 1.25);
+camera.position.set(0, 0.82, 1.36);
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 0, 0.46);
+controls.target.set(0, 0, 0.52);
 controls.enableDamping = true;
 controls.dampingFactor = 0.05;
 controls.enablePan = false;
@@ -151,13 +151,13 @@ controls.update();
 const CAMERA_VIEWS = {
   seated: {
     name: 'Seated',
-    pos: new THREE.Vector3(0, 0.74, 1.25),
-    target: new THREE.Vector3(0, 0, 0.46)
+    pos: new THREE.Vector3(0, 0.82, 1.36),
+    target: new THREE.Vector3(0, 0, 0.52)
   },
   closeup: {
     name: 'Close-Up',
-    pos: new THREE.Vector3(0, 0.58, 0.98),
-    target: new THREE.Vector3(0, 0, 0.46)
+    pos: new THREE.Vector3(0, 0.70, 1.20),
+    target: new THREE.Vector3(0, 0, 0.52)
   }
 };
 let cameraTransition = null;
@@ -553,7 +553,7 @@ CHIP_DENOMS.forEach((denom) => {
 });
 
 // 10. Betting Circle Destination
-const BET_CIRCLE_CENTER = new THREE.Vector3(0, 0.0018, 0.785);
+const BET_CIRCLE_CENTER = new THREE.Vector3(0, 0.0028, 0.882);
 
 function addBet(denom) {
   if (gameState !== 'BETTING' || isBusy) return;
@@ -1072,8 +1072,8 @@ function getHandChipPosition(handIndex = 0, totalHands = 1, chipIndex = 0) {
   const handCenterX = getHandCenterX(handIndex, totalHands);
   return new THREE.Vector3(
     handCenterX,
-    0.0018 + chipIndex * 0.0034,
-    0.785
+    BET_CIRCLE_CENTER.y + chipIndex * 0.0034,
+    BET_CIRCLE_CENTER.z
   );
 }
 
@@ -1965,6 +1965,7 @@ function handlePlayerSplit() {
   // Spawn chip stack for the new hand
   const chipDenom = newHand.bet >= 100 ? 100 : newHand.bet >= 25 ? 25 : newHand.bet >= 5 ? 5 : 1;
   const newChip = createChipMesh(chipDenom);
+  newChip.position.copy(hand.chipMeshes[0]?.position || BET_CIRCLE_CENTER);
   newChip.rotation.y = Math.random() * Math.PI * 2;
   scene.add(newChip);
   newHand.chipMeshes.push(newChip);
