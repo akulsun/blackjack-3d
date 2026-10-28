@@ -1,6 +1,6 @@
 # 3D Blackjack
 
-An immersive, real-time 3D Blackjack casino game built with **Three.js** and **Vite**. Features authentic casino table geometry, procedural high-resolution playing cards, synthesized audio via the Web Audio API, and a complete Vegas-standard rules engine.
+An immersive, real-time 3D Blackjack game built with **Three.js** and **Vite**. Features authentic casino table geometry, procedural high-resolution playing cards, synthesized audio via the Web Audio API, and a complete standard rules engine.
 
 ---
 
