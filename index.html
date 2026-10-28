@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D Blackjack</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="canvas-container"></div>
+
+    <!-- Top Navigation Bar -->
+    <div id="top-nav-bar">
+      <button id="settings-open-btn" class="top-nav-btn" title="Open Game Settings" aria-label="Game Settings">
+        <svg class="gear-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        <span>Settings</span>
+        <span id="header-rule-badge" class="header-rule-badge s17" title="Dealer stands on all 17s">S17</span>
+      </button>
+    </div>
+
+    <!-- Bankroll & Current Bet Display -->
+    <div id="bankroll-card">
+      <div class="bankroll-label">Bankroll</div>
+      <div id="bankroll-val" class="bankroll-amount">$1,000</div>
+      <div id="current-bet-display" class="bet-amount hidden">Bet: <span id="bet-val">$0</span></div>
+      <button id="reset-bankroll-btn" class="reset-btn hidden" title="Reload $1,000 starting chips">Reload $1,000</button>
+    </div>
+
+    <!-- Live Hand Scores -->
+    <div id="scores-container">
+      <div id="dealer-score-badge" class="score-badge hidden">
+        <span class="score-title">Dealer</span>
+        <span id="dealer-score-val" class="score-number">-</span>
+      </div>
+      <div id="player-scores-container">
+        <div id="player-score-badge" class="score-badge hidden">
+          <span class="score-title">Player</span>
+          <span id="player-score-val" class="score-number">-</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result Message Banner -->
+    <div id="result-banner" class="hidden">
+      <div id="result-title">Player Wins!</div>
+      <div id="result-subtitle">20 vs 18</div>
+    </div>
+
+    <!-- Action Bar & Controls -->
+    <div id="action-bar">
+      <!-- Betting Chips Selector -->
+      <div id="betting-controls">
+        <div id="chip-buttons">
+          <button class="chip-btn chip-1" data-denom="1" title="Click to bet $1">$1</button>
+          <button class="chip-btn chip-5" data-denom="5" title="Click to bet $5">$5</button>
+          <button class="chip-btn chip-25" data-denom="25" title="Click to bet $25">$25</button>
+          <button class="chip-btn chip-100" data-denom="100" title="Click to bet $100">$100</button>
+          <button id="clear-bet-btn" class="clear-btn" title="Clear current bet">Clear</button>
+        </div>
+      </div>
+
+      <div id="button-group">
+        <button id="deal-btn" class="casino-btn btn-deal">Place a Bet</button>
+        <!-- Insurance Offer Prompt -->
+        <div id="insurance-prompt" class="hidden">
+          <div class="insurance-title">Dealer shows Ace &bull; Insurance? (Pays 2:1)</div>
+          <div class="insurance-buttons">
+            <button id="insure-yes-btn" class="casino-btn btn-insure">Take Insurance ($<span id="insure-cost">0</span>)</button>
+            <button id="insure-no-btn" class="casino-btn btn-no-insure">No Insurance</button>
+          </div>
+        </div>
+        <div id="player-actions" class="hidden">
+          <button id="hit-btn" class="casino-btn btn-hit">Hit</button>
+          <button id="stand-btn" class="casino-btn btn-stand">Stand</button>
+          <button id="double-btn" class="casino-btn btn-double">Double</button>
+          <button id="split-btn" class="casino-btn btn-split">Split</button>
+          <button id="surrender-btn" class="casino-btn btn-surrender">Surrender</button>
+        </div>
+      </div>
+      <div id="shoe-counter">Shoe: 312 / 312 cards</div>
+    </div>
+
+    <!-- Dedicated Settings Modal Overlay -->
+    <div id="settings-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
+      <div class="settings-backdrop" id="settings-backdrop"></div>
+      <div class="settings-modal-card">
+        <!-- Modal Header -->
+        <div class="settings-modal-header">
+          <div class="settings-title-group">
+            <div class="settings-icon-badge">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+            </div>
+            <div>
+              <h2 id="settings-modal-title">Game Settings</h2>
+              <div class="settings-subtitle">Table rules, audio, visual preferences, and tools</div>
+            </div>
+          </div>
+          <button id="settings-close-btn" class="settings-close-x" aria-label="Close Settings">&times;</button>
+        </div>
+
+        <!-- Settings Tabs -->
+        <div class="settings-tabs-nav">
+          <button class="settings-tab-btn active" data-tab="rules">Rules & Table</button>
+          <button class="settings-tab-btn" data-tab="audio">Audio</button>
+          <button class="settings-tab-btn" data-tab="appearance">Appearance</button>
+          <button class="settings-tab-btn" data-tab="tools">Tools</button>
+        </div>
+
+        <!-- Settings Body -->
+        <div class="settings-modal-body">
+          <!-- 1. RULES TAB -->
+          <div class="settings-tab-panel active" id="tab-rules">
+            <!-- Dealer Soft 17 -->
+            <div class="setting-item-row">
+              <div class="setting-meta">
+                <span class="setting-title">Dealer Soft 17</span>
+                <span class="setting-description">Dealer stands on all 17s (S17) or hits on soft 17 (H17)</span>
+              </div>
+              <div class="segmented-control" id="h17-segment">
+                <button type="button" class="segment-opt active" data-val="s17" title="Dealer stands on all 17s">S17 Stand</button>
+                <button type="button" class="segment-opt" data-val="h17" title="Dealer hits soft 17">H17 Hit</button>
+              </div>
+            </div>
+
+            <!-- Blackjack Payout -->
+            <div class="setting-item-row">
+              <div class="setting-meta">
+                <span class="setting-title">Blackjack Payout</span>
+                <span class="setting-description">Payout ratio for a natural 2-card 21</span>
+              </div>
+              <div class="segmented-control" id="payout-segment">
+                <button type="button" class="segment-opt active" data-val="3:2" title="Standard 3:2 (+150%)">3 : 2</button>
+                <button type="button" class="segment-opt" data-val="6:5" title="Vegas 6:5 (+120%)">6 : 5</button>
+              </div>
+            </div>
+
+            <!-- Shoe Deck Count -->
+            <div class="setting-item-row">
+              <div class="setting-meta">
+                <span class="setting-title">Shoe Decks</span>
+                <span class="setting-description">Number of 52-card decks in the dealing shoe</span>
+              </div>
+              <select id="setting-deck-count" class="settings-dropdown">
+                <option value="1">1 Deck (52 cards)</option>
+                <option value="2">2 Decks (104 cards)</option>
+                <option value="4">4 Decks (208 cards)</option>
+                <option value="6" selected>6 Decks (312 cards)</option>
+                <option value="8">8 Decks (416 cards)</option>
+              </select>
+            </div>
+
+            <!-- Late Surrender -->
+            <div class="setting-item-row">
+              <div class="setting-meta">
+                <span class="setting-title">Late Surrender</span>
+                <span class="setting-description">Forfeit initial hand after dealer peek to recover 50% bet</span>
+              </div>
+              <label class="switch-toggle" for="setting-surrender-toggle">
+                <input type="checkbox" id="setting-surrender-toggle" checked />
+                <span class="slider-round"></span>
+              </label>
+            </div>
+
+            <!-- Insurance Offer -->
+            <div class="setting-item-row">
+              <div class="setting-meta">
+                <span class="setting-title">Insurance Offer</span>
+                <span class="setting-description">Offer 2:1 insurance protection when dealer shows an Ace</span>
+              </div>
+              <label class="switch-toggle" for="setting-insurance-toggle">
+                <input type="checkbox" id="setting-insurance-toggle" checked />
+                <span class="slider-round"></span>
+              </label>
+            </div>
+
+            <!-- Double After Split -->
+            <div class="setting-item-row">
+              <div class="setting-meta">
+                <span class="setting-title">Double After Split (DAS)</span>
+                <span class="setting-description">Allow doubling down on hands created from a split</span>
+              </div>
+              <label class="switch-toggle" for="setting-das-toggle">
+                <input type="checkbox" id="setting-das-toggle" checked />
+                <span class="slider-round"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 2. AUDIO TAB -->
+          <div class="settings-tab-panel" id="tab-audio">
+            <!-- Sound FX Toggle -->
+            <div class="setting-item-row">
+              <div class="setting-meta">
+                <span class="setting-title">Sound Effects</span>
+                <span class="setting-description">Synthesized audio for card deals, flips, chips, wins and busts</span>
+              </div>
+              <label class="switch-toggle" for="setting-sound-toggle">
+                <input type="checkbox" id="setting-sound-toggle" checked />
+                <span class="slider-round"></span>
+              </label>
+            </div>
+
+            <!-- Volume Slider -->
+            <div class="setting-item-row">
+              <div class="setting-meta">
+                <span class="setting-title">Master Volume</span>
+                <span class="setting-description">Sound effects playback level</span>
+              </div>
+              <div class="slider-with-label">
+                <input type="range" id="setting-volume-slider" min="0" max="100" value="80" class="custom-range" />
+                <span id="setting-volume-label" class="range-display">80%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. APPEARANCE TAB -->
+          <div class="settings-tab-panel" id="tab-appearance">
+            <!-- Table Felt Color Swatches -->
+            <div class="setting-item-row vertical">
+              <div class="setting-meta">
+                <span class="setting-title">Table Felt Color</span>
+                <span class="setting-description">Choose the 3D table felt material tone</span>
+              </div>
+              <div class="felt-palette-grid" id="felt-swatches">
+                <button type="button" class="felt-swatch-item active" data-color="emerald" title="Emerald Green">
+                  <span class="swatch-sample" style="background: #105c35;"></span>
+                  <span class="swatch-name">Emerald</span>
+                </button>
+                <button type="button" class="felt-swatch-item" data-color="sapphire" title="Sapphire Navy">
+                  <span class="swatch-sample" style="background: #14325c;"></span>
+                  <span class="swatch-name">Sapphire</span>
+                </button>
+                <button type="button" class="felt-swatch-item" data-color="ruby" title="Ruby Burgundy">
+                  <span class="swatch-sample" style="background: #54141e;"></span>
+                  <span class="swatch-name">Ruby</span>
+                </button>
+                <button type="button" class="felt-swatch-item" data-color="charcoal" title="Onyx Charcoal">
+                  <span class="swatch-sample" style="background: #1e242b;"></span>
+                  <span class="swatch-name">Charcoal</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Dealing Speed -->
+            <div class="setting-item-row">
+              <div class="setting-meta">
+                <span class="setting-title">Dealing Speed</span>
+                <span class="setting-description">Animation speed for cards and round sequences</span>
+              </div>
+              <div class="segmented-control" id="speed-segment">
+                <button type="button" class="segment-opt active" data-val="normal">Normal (1x)</button>
+                <button type="button" class="segment-opt" data-val="fast">Fast (1.5x)</button>
+                <button type="button" class="segment-opt" data-val="turbo">Turbo (2x)</button>
+              </div>
+            </div>
+
+            <!-- Show Shoe Counter -->
+            <div class="setting-item-row">
+              <div class="setting-meta">
+                <span class="setting-title">Shoe Card Counter</span>
+                <span class="setting-description">Display card remaining counter on table HUD</span>
+              </div>
+              <label class="switch-toggle" for="setting-shoe-counter-toggle">
+                <input type="checkbox" id="setting-shoe-counter-toggle" checked />
+                <span class="slider-round"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 4. TOOLS TAB -->
+          <div class="settings-tab-panel" id="tab-tools">
+            <!-- Reshuffle Shoe -->
+            <div class="setting-item-row">
+              <div class="setting-meta">
+                <span class="setting-title">Reshuffle Shoe</span>
+                <span class="setting-description">Shuffle the current dealing shoe immediately</span>
+              </div>
+              <button type="button" id="tool-reshuffle-btn" class="settings-action-btn">Reshuffle Shoe</button>
+            </div>
+
+            <!-- Reload Starting Bankroll -->
+            <div class="setting-item-row">
+              <div class="setting-meta">
+                <span class="setting-title">Reset Bankroll</span>
+                <span class="setting-description">Reload chip stack back to initial $1,000 balance</span>
+              </div>
+              <button type="button" id="tool-reload-bankroll-btn" class="settings-action-btn warning">Reload $1,000</button>
+            </div>
+
+            <!-- Deck Grid Inspector Link -->
+            <div class="setting-item-row">
+              <div class="setting-meta">
+                <span class="setting-title">Deck Inspector Grid</span>
+                <span class="setting-description">Inspect all 52 high-resolution procedural card designs</span>
+              </div>
+              <a href="debug.html" class="settings-link-btn">Open Deck Grid &rarr;</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="settings-modal-footer">
+          <span class="settings-autosave-tag">&bull; Settings are automatically saved</span>
+          <button type="button" id="settings-done-btn" class="casino-btn btn-settings-done">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
