@@ -14,6 +14,14 @@ import {
   determineOutcome,
   getOptimalMove
 } from './rules.js';
+import {
+  calculateLevel,
+  getLevelBounds,
+  getLoyaltyProgression,
+  getReloadAllowance,
+  addLoyaltyXP,
+  LOYALTY_TIERS
+} from './stats.js';
 
 let passedCount = 0;
 let failedCount = 0;
@@ -538,6 +546,100 @@ test('getOptimalMove determines mathematically optimal basic strategy decisions'
     getOptimalMove([{ rank: '6' }, { rank: '5' }], { rank: '6' }, { canDouble: true }),
     'D'
   ); // 11 doubles vs 6
+});
+
+// 19. Career Loyalty XP & Leveling Engine
+test('calculateLevel and getLevelBounds map XP and level boundaries accurately', () => {
+  assert.equal(calculateLevel(0), 1);
+  assert.equal(calculateLevel(199), 1);
+  assert.equal(calculateLevel(200), 2);
+  assert.equal(calculateLevel(800), 5);
+  assert.equal(calculateLevel(999), 5);
+
+  // Silver tier boundary (1,000 XP -> Lv 6)
+  assert.equal(calculateLevel(1000), 6);
+  assert.equal(calculateLevel(1400), 7);
+  assert.equal(calculateLevel(4999), 15);
+
+  // Gold tier boundary (5,000 XP -> Lv 16)
+  assert.equal(calculateLevel(5000), 16);
+
+  // Platinum tier boundary (15,000 XP -> Lv 31)
+  assert.equal(calculateLevel(15000), 31);
+
+  // Diamond Whale boundary (50,000 XP -> Lv 51)
+  assert.equal(calculateLevel(50000), 51);
+
+  const bounds1 = getLevelBounds(1);
+  assert.equal(bounds1.minXp, 0);
+  assert.equal(bounds1.maxXp, 200);
+
+  const bounds6 = getLevelBounds(6);
+  assert.equal(bounds6.minXp, 1000);
+  assert.equal(bounds6.maxXp, 1400);
+});
+
+// 20. Loyalty Tier Progression & Reload Allowances
+test('getLoyaltyProgression returns persistent tiers, dynamic reload allowances, and unlocks', () => {
+  const bronze = getLoyaltyProgression(450);
+  assert.equal(bronze.name, 'Bronze Roller');
+  assert.equal(bronze.reloadAllowance, 1000);
+  assert.equal(bronze.tierIndex, 0);
+  assert.equal(bronze.nextTier.name, 'Silver Club');
+  assert.equal(getReloadAllowance(450), 1000);
+
+  const silver = getLoyaltyProgression(1500);
+  assert.equal(silver.name, 'Silver Club');
+  assert.equal(silver.reloadAllowance, 2500);
+  assert.equal(silver.tierIndex, 1);
+  assert.equal(silver.nextTier.name, 'Gold VIP');
+  assert.equal(getReloadAllowance(1500), 2500);
+
+  const gold = getLoyaltyProgression(7500);
+  assert.equal(gold.name, 'Gold VIP');
+  assert.equal(gold.reloadAllowance, 5000);
+  assert.equal(getReloadAllowance(7500), 5000);
+
+  const platinum = getLoyaltyProgression(25000);
+  assert.equal(platinum.name, 'Platinum Elite');
+  assert.equal(platinum.reloadAllowance, 10000);
+  assert.equal(getReloadAllowance(25000), 10000);
+
+  const whale = getLoyaltyProgression(60000);
+  assert.equal(whale.name, 'Diamond Whale');
+  assert.equal(whale.reloadAllowance, 25000);
+  assert.equal(whale.nextTier, null);
+  assert.equal(getReloadAllowance(60000), 25000);
+});
+
+// 21. Dynamic XP Earning & Level-Up Detection
+test('addLoyaltyXP accurately tracks XP, level-up transitions, and tier promotions', () => {
+  const stats = {
+    xp: 180,
+    level: 1,
+    xpBreakdown: { wager: 100, wins: 80, blackjacks: 0, strategy: 0 }
+  };
+
+  // Adding 10 XP: total 190 XP, still Lv 1
+  const res1 = addLoyaltyXP(stats, 10, 'wager');
+  assert.equal(res1.leveledUp, false);
+  assert.equal(res1.tieredUp, false);
+  assert.equal(stats.xp, 190);
+
+  // Adding 30 XP: total 220 XP, level up to Lv 2
+  const res2 = addLoyaltyXP(stats, 30, 'wins');
+  assert.equal(res2.leveledUp, true);
+  assert.equal(res2.tieredUp, false);
+  assert.equal(res2.newLevel, 2);
+  assert.equal(stats.level, 2);
+
+  // Jump from 950 XP to 1050 XP: both level up and tier promotion to Silver Club
+  stats.xp = 950;
+  const res3 = addLoyaltyXP(stats, 100, 'wager');
+  assert.equal(res3.leveledUp, true);
+  assert.equal(res3.tieredUp, true);
+  assert.equal(res3.newTier.name, 'Silver Club');
+  assert.equal(stats.level, 6);
 });
 
 console.log(`\nResults: ${passedCount} passed, ${failedCount} failed.\n`);

@@ -26,6 +26,7 @@ import {
   playWinSound,
   playBustSound,
   playShuffleSound,
+  playLevelUpSound,
   setSoundEnabled,
   setSoundVolume
 } from './audio.js';
@@ -45,6 +46,10 @@ import {
   calculateWinRate,
   renderTrajectoryChart,
   getVIPTier,
+  getLoyaltyProgression,
+  getReloadAllowance,
+  addLoyaltyXP,
+  calculateLevel,
   getStrategyAccuracy,
   recordStrategyDecision
 } from './stats.js';
@@ -427,13 +432,35 @@ function updateBankrollDisplay() {
   if (bankrollVal) {
     bankrollVal.textContent = `$${bankroll.toLocaleString()}`;
   }
+
+  const stats = loadStats();
+  const loyalty = getLoyaltyProgression(stats);
+  const allowance = loyalty.reloadAllowance || 1000;
+
   const vipBadge = document.getElementById('vip-tier-badge');
   if (vipBadge) {
-    const tier = getVIPTier(bankroll);
-    vipBadge.textContent = `${tier.icon} ${tier.name}`;
-    vipBadge.style.borderColor = tier.color;
-    vipBadge.style.color = tier.color;
+    vipBadge.textContent = `${loyalty.icon} ${loyalty.name}`;
+    vipBadge.style.borderColor = loyalty.color;
+    vipBadge.style.color = loyalty.color;
   }
+
+  const levelBadge = document.getElementById('bankroll-level-badge');
+  if (levelBadge) {
+    levelBadge.textContent = `Lv. ${loyalty.level}`;
+  }
+
+  const xpText = document.getElementById('bankroll-xp-text');
+  if (xpText) {
+    const curInLvl = Math.max(0, loyalty.xp - loyalty.levelMinXp);
+    const spanLvl = Math.max(1, loyalty.levelMaxXp - loyalty.levelMinXp);
+    xpText.textContent = `${curInLvl.toLocaleString()} / ${spanLvl.toLocaleString()} XP`;
+  }
+
+  const xpFill = document.getElementById('bankroll-xp-fill');
+  if (xpFill) {
+    xpFill.style.width = `${loyalty.levelProgressPercent}%`;
+  }
+
   if (betVal) {
     betVal.textContent = `$${currentBet.toLocaleString()}`;
   }
@@ -503,14 +530,64 @@ function updateBankrollDisplay() {
     clearBetBtn.disabled = gameState !== 'BETTING' || currentBet === 0;
   }
 
-  // If bankroll is zero and no active bet, show reload button
+  // If bankroll is zero and no active bet, show reload button with dynamic tier allowance
   if (resetBankrollBtn) {
+    resetBankrollBtn.textContent = `Reload $${allowance.toLocaleString()}`;
     if (bankroll === 0 && currentBet === 0 && gameState === 'BETTING') {
       resetBankrollBtn.classList.remove('hidden');
     } else {
       resetBankrollBtn.classList.add('hidden');
     }
   }
+}
+
+// Level-Up & Tier Celebration Banner Management
+let levelUpToastTimer = null;
+function showLevelUpCelebration(xpResult) {
+  if (!xpResult || (!xpResult.leveledUp && !xpResult.tieredUp)) return;
+
+  playLevelUpSound();
+
+  const toast = document.getElementById('levelup-toast');
+  const tag = document.getElementById('levelup-tag');
+  const title = document.getElementById('levelup-title');
+  const desc = document.getElementById('levelup-desc');
+  const icon = document.getElementById('levelup-icon');
+
+  if (toast && title && desc) {
+    if (xpResult.tieredUp) {
+      if (tag) tag.textContent = '🎉 VIP TIER PROMOTION!';
+      if (icon) icon.textContent = xpResult.newTier.icon;
+      title.textContent = `Level ${xpResult.newLevel} • ${xpResult.newTier.name}`;
+      desc.textContent = `Reload Allowance upgraded to $${xpResult.newTier.reloadAllowance.toLocaleString()}! Perks: ${xpResult.newTier.perks[1] || ''}`;
+    } else {
+      if (tag) tag.textContent = '⭐ LEVEL UP!';
+      if (icon) icon.textContent = '⭐';
+      title.textContent = `Level ${xpResult.newLevel} • ${xpResult.newTier.name}`;
+      desc.textContent = `${xpResult.newTier.title} • Reload Allowance: $${xpResult.newTier.reloadAllowance.toLocaleString()}`;
+    }
+
+    toast.classList.remove('hidden');
+    toast.classList.remove('fade-out');
+
+    if (levelUpToastTimer) clearTimeout(levelUpToastTimer);
+    levelUpToastTimer = setTimeout(() => {
+      toast.classList.add('fade-out');
+      setTimeout(() => {
+        toast.classList.add('hidden');
+        toast.classList.remove('fade-out');
+      }, 350);
+    }, 4200);
+  }
+}
+
+function logRoundOutcome(params) {
+  const result = recordRoundOutcome(params);
+  updateBankrollDisplay();
+  if (result && result.xpResult && (result.xpResult.leveledUp || result.xpResult.tieredUp)) {
+    showLevelUpCelebration(result.xpResult);
+  }
+  return result;
 }
 
 // 9. 3D Chips on the Table (Near Player's Right Side)
@@ -1511,7 +1588,7 @@ function resolveDealerBlackjackRound() {
     bankroll += lastRoundBet;
     saveBankroll(bankroll);
     updateBankrollDisplay();
-    recordRoundOutcome({
+    logRoundOutcome({
       wager: lastRoundBet,
       netChange: insuranceBet > 0 ? insProfit : 0,
       outcome: insuranceBet > 0 && insProfit > 0 ? 'win' : 'push',
@@ -1526,7 +1603,7 @@ function resolveDealerBlackjackRound() {
   } else {
     // Player does not have Blackjack: main bet lost
     const net = (insuranceBet > 0 ? insProfit : 0) - lastRoundBet;
-    recordRoundOutcome({
+    logRoundOutcome({
       wager: lastRoundBet,
       netChange: net,
       outcome: net > 0 ? 'win' : net === 0 ? 'push' : 'loss',
@@ -1576,7 +1653,7 @@ function checkNaturalBlackjackNoPeek() {
       bankroll += lastRoundBet + profit;
       saveBankroll(bankroll);
       updateBankrollDisplay();
-      recordRoundOutcome({
+      logRoundOutcome({
         wager: lastRoundBet,
         netChange: profit,
         outcome: 'bj',
@@ -2096,7 +2173,7 @@ function handlePlayerSurrender() {
   bankroll += refund;
   saveBankroll(bankroll);
   updateBankrollDisplay();
-  recordRoundOutcome({
+  logRoundOutcome({
     wager: hand.bet,
     netChange: -forfeited,
     outcome: 'loss',
@@ -2240,7 +2317,7 @@ function resolveRound() {
   );
   const roundType = netGain > 0 ? (hadBlackjack ? 'bj' : 'win') : netGain < 0 ? 'loss' : 'push';
 
-  recordRoundOutcome({
+  logRoundOutcome({
     wager: totalWager,
     netChange: netGain,
     outcome: roundType,
@@ -2429,20 +2506,71 @@ if (toolOpenShortcutsBtn) {
 // Player Analytics & Stats Modal Management
 function updateStatsUI() {
   const stats = loadStats();
+  const loyalty = getLoyaltyProgression(stats);
 
-  // VIP Tier & Progression Card
-  const tier = getVIPTier(bankroll);
+  // VIP Loyalty Career & Progression Card
   const tierIcon = document.getElementById('stats-tier-icon');
   const tierName = document.getElementById('stats-tier-name');
+  const tierLevelTag = document.getElementById('stats-tier-level-tag');
+  const tierTitleTag = document.getElementById('stats-tier-title-tag');
   const tierFill = document.getElementById('stats-tier-fill');
+  const xpSummary = document.getElementById('stats-xp-summary');
   const tierTarget = document.getElementById('stats-tier-target');
-  if (tierIcon) tierIcon.textContent = tier.icon;
-  if (tierName) tierName.textContent = tier.name;
-  if (tierFill) tierFill.style.width = `${tier.progressPercent}%`;
+  const activePerksList = document.getElementById('stats-active-perks');
+  const nextPreview = document.getElementById('stats-next-preview');
+
+  if (tierIcon) tierIcon.textContent = loyalty.icon;
+  if (tierName) {
+    tierName.textContent = loyalty.name;
+    tierName.style.color = loyalty.color;
+  }
+  if (tierLevelTag) tierLevelTag.textContent = `Level ${loyalty.level}`;
+  if (tierTitleTag) tierTitleTag.textContent = loyalty.title;
+  if (tierFill) tierFill.style.width = `${loyalty.tierProgressPercent}%`;
+  if (xpSummary) {
+    const curInTier = Math.max(0, loyalty.xp - loyalty.minXp);
+    const spanTier = loyalty.nextTier ? loyalty.nextTier.minXp - loyalty.minXp : 1;
+    xpSummary.textContent = loyalty.nextTier
+      ? `${curInTier.toLocaleString()} / ${spanTier.toLocaleString()} XP to ${loyalty.nextTier.name}`
+      : `${loyalty.xp.toLocaleString()} XP (Max Rank)`;
+  }
   if (tierTarget) {
-    tierTarget.textContent = tier.nextTier
-      ? `$${tier.toNext.toLocaleString()} to ${tier.nextTier.name} (${tier.progressPercent}%)`
-      : 'Highest VIP Milestone Achieved! 👑';
+    tierTarget.textContent = loyalty.nextTier
+      ? `${loyalty.tierToNext.toLocaleString()} XP remaining (${loyalty.tierProgressPercent}%)`
+      : 'Monte Carlo Legend Status Achieved! 👑';
+  }
+
+  // Active perks rendering
+  if (activePerksList) {
+    activePerksList.innerHTML = loyalty.perks
+      .map((p) => `<span class="perk-pill">✓ ${p}</span>`)
+      .join('');
+  }
+
+  // Next milestone preview
+  if (nextPreview) {
+    if (loyalty.nextTier) {
+      nextPreview.textContent = `⭐ ${loyalty.nextTier.name} (Lv. ${loyalty.nextTier.minLevel}): $${loyalty.nextTier.reloadAllowance.toLocaleString()} Reload Allowance & ${loyalty.nextTier.perks[1] || ''}`;
+    } else {
+      nextPreview.textContent = '👑 All VIP Table Privileges & Maximum Reloads Unlocked';
+    }
+  }
+
+  // Career Loyalty XP & Peak Bankroll KPIs
+  const kpiTotalXp = document.getElementById('kpi-total-xp');
+  const kpiLevelSub = document.getElementById('kpi-level-sub');
+  const kpiPeakBankroll = document.getElementById('kpi-peak-bankroll');
+
+  if (kpiTotalXp) {
+    kpiTotalXp.textContent = `${loyalty.xp.toLocaleString()} XP`;
+  }
+  if (kpiLevelSub) {
+    const curInLvl = Math.max(0, loyalty.xp - loyalty.levelMinXp);
+    const spanLvl = Math.max(1, loyalty.levelMaxXp - loyalty.levelMinXp);
+    kpiLevelSub.textContent = `Level ${loyalty.level} • ${curInLvl.toLocaleString()} / ${spanLvl.toLocaleString()} XP`;
+  }
+  if (kpiPeakBankroll) {
+    kpiPeakBankroll.textContent = `$${(stats.peakBankroll || bankroll || 1000).toLocaleString()}`;
   }
 
   if (kpiNetProfit) {
@@ -2542,7 +2670,24 @@ if (statsResetBtn) {
   statsResetBtn.addEventListener('click', () => {
     resetStats();
     updateStatsUI();
-    showGestureToast('Analytics Reset ✓');
+    updateBankrollDisplay();
+    showGestureToast('Career Analytics Reset ✓');
+  });
+}
+
+const bankrollCard = document.getElementById('bankroll-card');
+if (bankrollCard) {
+  bankrollCard.addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'reset-bankroll-btn') return;
+    openStatsModal();
+  });
+}
+
+const levelupToast = document.getElementById('levelup-toast');
+if (levelupToast) {
+  levelupToast.addEventListener('click', () => {
+    levelupToast.classList.add('hidden');
+    openStatsModal();
   });
 }
 
@@ -2903,6 +3048,8 @@ function syncSettingsUI() {
   }
   const toolReloadBankrollBtn = document.getElementById('tool-reload-bankroll-btn');
   if (toolReloadBankrollBtn) {
+    const allowance = getReloadAllowance();
+    toolReloadBankrollBtn.textContent = `Reload $${allowance.toLocaleString()}`;
     toolReloadBankrollBtn.disabled = gameState !== 'BETTING' || isBusy;
   }
 }
@@ -3092,13 +3239,15 @@ const toolReloadBankrollBtn = document.getElementById('tool-reload-bankroll-btn'
 if (toolReloadBankrollBtn) {
   toolReloadBankrollBtn.addEventListener('click', () => {
     if (gameState !== 'BETTING' || isBusy) return;
-    bankroll = resetBankroll();
+    const allowance = getReloadAllowance();
+    bankroll = allowance;
+    saveBankroll(bankroll);
     currentBet = 0;
     clearBet();
     updateBankrollDisplay();
     playChipCollectSound();
     const origText = toolReloadBankrollBtn.textContent;
-    toolReloadBankrollBtn.textContent = 'Reloaded $1,000 ✓';
+    toolReloadBankrollBtn.textContent = `Reloaded $${allowance.toLocaleString()} ✓`;
     toolReloadBankrollBtn.disabled = true;
     setTimeout(() => {
       toolReloadBankrollBtn.textContent = origText;
@@ -3123,10 +3272,13 @@ document.querySelectorAll('.chip-btn').forEach((btn) => {
 
 if (resetBankrollBtn) {
   resetBankrollBtn.addEventListener('click', () => {
-    bankroll = resetBankroll();
+    const allowance = getReloadAllowance();
+    bankroll = allowance;
+    saveBankroll(bankroll);
     currentBet = 0;
     updateBankrollDisplay();
-    playChipClinkSound();
+    playChipCollectSound();
+    showGestureToast(`Reloaded $${allowance.toLocaleString()} ✓`);
   });
 }
 

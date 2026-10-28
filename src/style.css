@@ -119,12 +119,20 @@ html, body {
   flex-direction: column;
   align-items: flex-end;
   z-index: 50;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+#bankroll-card:hover {
+  background: rgba(0, 0, 0, 0.55);
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
 .bankroll-header-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
   gap: 8px;
 }
 
@@ -161,8 +169,56 @@ html, body {
   letter-spacing: 0.3px;
 }
 
+/* Micro XP progress bar inside bankroll card */
+.bankroll-xp-container {
+  width: 100%;
+  margin-top: 5px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bankroll-xp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+}
+
+.bankroll-level-badge {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #facc15;
+}
+
+.bankroll-xp-text {
+  font-size: 8px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.bankroll-xp-track {
+  width: 100%;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.bankroll-xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #facc15 0%, #38bdf8 100%);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
 .reset-btn {
-  margin-top: 4px;
+  margin-top: 5px;
   background: rgba(239, 68, 68, 0.15);
   color: rgba(252, 165, 165, 0.9);
   border: 1px solid rgba(239, 68, 68, 0.25);
@@ -178,6 +234,96 @@ html, body {
 .reset-btn:hover {
   background: rgba(239, 68, 68, 0.3);
   color: #fff;
+}
+
+/* ─── Level-Up & Tier Celebration Banner ─── */
+.levelup-toast {
+  position: fixed;
+  top: 58px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  pointer-events: auto;
+  cursor: pointer;
+  animation: levelUpSlideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.levelup-toast.fade-out {
+  animation: levelUpFadeOut 0.35s ease forwards;
+}
+
+@keyframes levelUpSlideDown {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -20px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+@keyframes levelUpFadeOut {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -14px) scale(0.95);
+  }
+}
+
+.levelup-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(14, 18, 28, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(250, 204, 21, 0.4);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.65), 0 0 24px rgba(250, 204, 21, 0.15);
+  border-radius: 12px;
+  padding: 10px 18px;
+}
+
+.levelup-icon-box {
+  font-size: 22px;
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  background: rgba(250, 204, 21, 0.12);
+  border: 1px solid rgba(250, 204, 21, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.levelup-text-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.levelup-tag {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #facc15;
+}
+
+.levelup-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.2px;
+}
+
+.levelup-desc {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 /* ─── Score Badges (top-left) ─── */
@@ -1394,6 +1540,16 @@ html, body {
   letter-spacing: 0.3px;
 }
 
+.stats-tier-title-tag {
+  font-size: 8px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(250, 204, 21, 0.1);
+  color: #facc15;
+  letter-spacing: 0.3px;
+}
+
 .stats-tier-desc {
   font-size: 10px;
   color: rgba(255, 255, 255, 0.35);
@@ -1403,6 +1559,19 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 3px;
+}
+
+.stats-tier-bar-labels {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.stats-xp-summary {
+  font-size: 9px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .stats-tier-bar {
@@ -1415,7 +1584,7 @@ html, body {
 
 .stats-tier-fill {
   height: 100%;
-  background: rgba(255, 255, 255, 0.3);
+  background: linear-gradient(90deg, #facc15 0%, #38bdf8 100%);
   border-radius: 2px;
   transition: width 0.3s ease;
 }
@@ -1423,8 +1592,53 @@ html, body {
 .stats-tier-target {
   font-size: 9px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.4);
   text-align: right;
+}
+
+.stats-perks-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.stats-perk-header {
+  font-size: 8px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.stats-perk-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.perk-pill {
+  font-size: 9px;
+  font-weight: 500;
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.08);
+  border: 1px solid rgba(74, 222, 128, 0.2);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+.stats-next-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stats-next-preview {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.65);
 }
 
 /* KPI Grid */
