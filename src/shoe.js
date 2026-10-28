@@ -42,8 +42,10 @@ export class Shoe {
    * @returns {{ suit: string, rank: string }}
    */
   drawCard() {
+    this.reshuffledThisDraw = false;
     if (this.cards.length <= this.penetrationLimit) {
       this.shuffle();
+      this.reshuffledThisDraw = true;
     }
     return this.cards.pop();
   }

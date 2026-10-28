@@ -429,6 +429,69 @@ export function createTable() {
 
   tableGroup.add(shoeGroup);
 
+  // 9. Casino Discard Tray (Acrylic Holder on Dealer's Right)
+  const discardGroup = new THREE.Group();
+  discardGroup.position.set(-0.66, 0.002, 0.08);
+  discardGroup.rotation.y = 0.48; // Angled facing inward towards the dealer/felt
+
+  const discardAcrylicMat = new THREE.MeshStandardMaterial({
+    color: 0x28313e,
+    roughness: 0.12,
+    metalness: 0.08,
+    transparent: true,
+    opacity: 0.68
+  });
+
+  const discardTrimMat = new THREE.MeshStandardMaterial({
+    color: 0x14161a,
+    roughness: 0.35,
+    metalness: 0.2
+  });
+
+  // Base plate
+  const discardBaseGeo = new THREE.BoxGeometry(0.104, 0.006, 0.140);
+  const discardBase = new THREE.Mesh(discardBaseGeo, discardTrimMat);
+  discardBase.position.set(0, 0.003, 0);
+  discardBase.castShadow = true;
+  discardBase.receiveShadow = true;
+  discardGroup.add(discardBase);
+
+  // Back Wall
+  const backWallGeo = new THREE.BoxGeometry(0.104, 0.080, 0.006);
+  const backWall = new THREE.Mesh(backWallGeo, discardAcrylicMat);
+  backWall.position.set(0, 0.043, -0.067);
+  backWall.castShadow = true;
+  backWall.receiveShadow = true;
+  discardGroup.add(backWall);
+
+  // Left Guide Wall
+  const sideWallGeo = new THREE.BoxGeometry(0.006, 0.080, 0.140);
+  const leftWall = new THREE.Mesh(sideWallGeo, discardAcrylicMat);
+  leftWall.position.set(-0.049, 0.043, 0);
+  leftWall.castShadow = true;
+  leftWall.receiveShadow = true;
+  discardGroup.add(leftWall);
+
+  // Right Guide Wall
+  const rightWall = new THREE.Mesh(sideWallGeo, discardAcrylicMat);
+  rightWall.position.set(0.049, 0.043, 0);
+  rightWall.castShadow = true;
+  rightWall.receiveShadow = true;
+  discardGroup.add(rightWall);
+
+  // Growing Visual Discarded Card Stack inside the tray
+  const discardStackGeo = new THREE.BoxGeometry(0.088, 0.001, 0.124);
+  const discardStackMat = new THREE.MeshStandardMaterial({
+    color: 0x820f15, // Red back card stack
+    roughness: 0.45
+  });
+  const discardStack = new THREE.Mesh(discardStackGeo, discardStackMat);
+  discardStack.position.set(0, 0.006, 0);
+  discardStack.visible = false;
+  discardGroup.add(discardStack);
+
+  tableGroup.add(discardGroup);
+
   return {
     group: tableGroup,
     feltMaterial,
@@ -438,6 +501,28 @@ export function createTable() {
     lampGroup,
     lampPosition: new THREE.Vector3(0, lampBaseY - 0.035, boardCenterZ),
     dealOrigin: new THREE.Vector3(0.61, 0.042, 0.13),
+    discardDestination: new THREE.Vector3(-0.66, 0.026, 0.08),
+    discardStack,
+    updateDiscardStackHeight: (cardCount, maxCards = 312) => {
+      if (discardStack) {
+        if (cardCount <= 0) {
+          discardStack.visible = false;
+          return;
+        }
+        const heightRatio = Math.min(1, Math.max(0.03, cardCount / maxCards));
+        const currentH = Math.max(0.003, 0.070 * heightRatio);
+        discardStack.scale.y = currentH / 0.001;
+        discardStack.position.y = 0.006 + currentH / 2;
+        discardStack.visible = true;
+      }
+    },
+    resetDiscardStack: () => {
+      if (discardStack) {
+        discardStack.scale.y = 1;
+        discardStack.position.y = 0.006;
+        discardStack.visible = false;
+      }
+    },
     setFeltColor: (colorHex) => {
       feltMaterial.map = createFeltTexture(colorHex);
       feltMaterial.needsUpdate = true;

@@ -340,6 +340,12 @@ let dealerHand = []; // { data: { suit, rank }, mesh: THREE.Mesh, isHole: boolea
 let isHoleCardRevealed = false;
 let isBusy = false;
 
+// Discard Tray & Card Cleanup State
+let discardedCardsCount = 0;
+let autoCleanupTimer = null;
+let isCleaningCards = false;
+let pendingDealAfterCleanup = false;
+
 const activeAnimations = [];
 const betChipMeshes = [];
 const clickableChipObjects = [];
@@ -403,6 +409,19 @@ function updateShoeDisplay() {
   }
 }
 updateShoeDisplay();
+
+function drawCardFromShoe() {
+  const card = shoe.drawCard();
+  if (shoe.reshuffledThisDraw) {
+    discardedCardsCount = 0;
+    if (table && table.resetDiscardStack) {
+      table.resetDiscardStack();
+    }
+    playShuffleSound();
+  }
+  updateShoeDisplay();
+  return card;
+}
 
 function updateBankrollDisplay() {
   if (bankrollVal) {
@@ -1073,9 +1092,179 @@ function getDealerCardPosition(index) {
   }
 }
 
+// 14b. Animated Discard Tray & Card Cleanup Flow
+function sweepCardsToDiscard(onComplete, isExpedited = false) {
+  if (autoCleanupTimer) {
+    clearTimeout(autoCleanupTimer);
+    autoCleanupTimer = null;
+  }
+
+  const cardsToSweep = [...dealerHand, ...playerHands.flatMap((h) => h.cards)];
+  playerHands = [];
+  dealerHand = [];
+
+  if (cardsToSweep.length === 0) {
+    if (onComplete) onComplete();
+    return;
+  }
+
+  isCleaningCards = true;
+
+  // Clear score badges while cards are being collected
+  updateScoresDisplay();
+
+  // Cancel any lingering animations for these cards
+  const sweepMeshes = new Set(cardsToSweep.map((c) => c.mesh));
+  for (let i = activeAnimations.length - 1; i >= 0; i--) {
+    if (sweepMeshes.has(activeAnimations[i].mesh)) {
+      activeAnimations.splice(i, 1);
+    }
+  }
+
+  const speedScale = getSpeedScale();
+  const gatherDuration = isExpedited ? 130 : Math.max(120, Math.round(220 * speedScale));
+  const slideDuration = isExpedited ? 160 : Math.max(140, Math.round(260 * speedScale));
+  const gatherStagger = isExpedited ? 8 : Math.max(6, Math.round(18 * speedScale));
+
+  let gatheredCount = 0;
+  const totalCards = cardsToSweep.length;
+
+  cardsToSweep.forEach((cardObj, idx) => {
+    const mesh = cardObj.mesh;
+    const currentPos = mesh.position.clone();
+    const currentRotY = mesh.rotation.y;
+    const currentRotZ = mesh.rotation.z;
+
+    // Stack cards at center felt
+    const gatherTargetPos = new THREE.Vector3(
+      0,
+      0.015 + idx * 0.0012,
+      0.38
+    );
+
+    activeAnimations.push({
+      mesh,
+      startPos: currentPos,
+      targetPos: gatherTargetPos,
+      startRotY: currentRotY,
+      targetRotY: 0,
+      startRotZ: currentRotZ,
+      targetRotZ: 0,
+      arcHeight: 0.024,
+      duration: gatherDuration,
+      delay: idx * gatherStagger,
+      startTime: null,
+      started: false,
+      onStart: idx === 0 ? playCardSlideSound : null,
+      onComplete: () => {
+        gatheredCount++;
+        if (gatheredCount === totalCards) {
+          slideStackToDiscardTray(cardsToSweep, slideDuration, () => {
+            isCleaningCards = false;
+            if (pendingDealAfterCleanup) {
+              pendingDealAfterCleanup = false;
+              isBusy = false;
+              startActualDeal();
+            } else if (onComplete) {
+              onComplete();
+            }
+          });
+        }
+      }
+    });
+  });
+}
+
+function slideStackToDiscardTray(cardsToSweep, slideDuration, onDone) {
+  let slidCount = 0;
+  const totalCards = cardsToSweep.length;
+  const dest = table.discardDestination || new THREE.Vector3(-0.66, 0.026, 0.08);
+
+  cardsToSweep.forEach((cardObj, idx) => {
+    const mesh = cardObj.mesh;
+    const currentPos = mesh.position.clone();
+    const currentRotY = mesh.rotation.y;
+    const currentRotZ = mesh.rotation.z;
+
+    const trayTargetPos = new THREE.Vector3(
+      dest.x,
+      dest.y + idx * 0.0008,
+      dest.z
+    );
+
+    activeAnimations.push({
+      mesh,
+      startPos: currentPos,
+      targetPos: trayTargetPos,
+      startRotY: currentRotY,
+      targetRotY: 0.48, // Aligned with the angled discard tray
+      startRotZ: currentRotZ,
+      targetRotZ: 0,
+      arcHeight: 0.012,
+      duration: slideDuration,
+      delay: idx * 4,
+      startTime: null,
+      started: false,
+      onStart: idx === 0 ? playCardSlideSound : null,
+      onComplete: () => {
+        slidCount++;
+        if (slidCount === totalCards) {
+          // Dispose meshes and update tray stack
+          cardsToSweep.forEach(({ mesh: m }) => {
+            scene.remove(m);
+            if (m.geometry) m.geometry.dispose();
+            if (Array.isArray(m.material)) {
+              m.material.forEach((mat) => mat.dispose());
+            }
+          });
+
+          discardedCardsCount += totalCards;
+          if (table && table.updateDiscardStackHeight) {
+            table.updateDiscardStackHeight(discardedCardsCount, shoe.numDecks * 52);
+          }
+
+          if (onDone) onDone();
+        }
+      }
+    });
+  });
+}
+
 // 15. Deal Flow
 function dealRound() {
   if (isBusy || currentBet <= 0) return;
+
+  if (autoCleanupTimer) {
+    clearTimeout(autoCleanupTimer);
+    autoCleanupTimer = null;
+  }
+
+  // If cards are currently mid-sweep, mark deal pending so it starts right when cleanup finishes
+  if (isCleaningCards) {
+    pendingDealAfterCleanup = true;
+    isBusy = true;
+    return;
+  }
+
+  // If previous round cards are still sitting on the table, perform an expedited sweep first
+  const remainingCards = [...dealerHand, ...playerHands.flatMap((h) => h.cards)];
+  if (remainingCards.length > 0) {
+    isBusy = true;
+    sweepCardsToDiscard(() => {
+      isBusy = false;
+      startActualDeal();
+    }, true /* expedited sweep */);
+    return;
+  }
+
+  startActualDeal();
+}
+
+function startActualDeal() {
+  if (currentBet <= 0) {
+    isBusy = false;
+    return;
+  }
   isBusy = true;
   gameState = 'DEALING';
   lastRoundBet = currentBet;
@@ -1095,7 +1284,7 @@ function dealRound() {
     activeHandMarker.group.visible = false;
   }
 
-  // Clear previous round cards
+  // Clear previous round cards (safety check)
   [...dealerHand, ...playerHands.flatMap((h) => h.cards)].forEach(({ mesh }) => {
     scene.remove(mesh);
     if (mesh.geometry) mesh.geometry.dispose();
@@ -1114,17 +1303,16 @@ function dealRound() {
   // Draw 4 cards (or debug forced cards for testing)
   const pCard1 = forcePlayerCards
     ? { suit: 'spades', rank: forcePlayerCards[0] }
-    : (forceNextPairRank ? { suit: 'spades', rank: forceNextPairRank } : shoe.drawCard());
-  const dCard1 = forceDealerUpRank ? { suit: 'spades', rank: forceDealerUpRank } : shoe.drawCard();
+    : (forceNextPairRank ? { suit: 'spades', rank: forceNextPairRank } : drawCardFromShoe());
+  const dCard1 = forceDealerUpRank ? { suit: 'spades', rank: forceDealerUpRank } : drawCardFromShoe();
   const pCard2 = forcePlayerCards
     ? { suit: 'hearts', rank: forcePlayerCards[1] }
-    : (forceNextPairRank ? { suit: 'hearts', rank: forceNextPairRank } : shoe.drawCard());
-  const dCard2 = forceDealerHoleRank ? { suit: 'diamonds', rank: forceDealerHoleRank } : shoe.drawCard();
+    : (forceNextPairRank ? { suit: 'hearts', rank: forceNextPairRank } : drawCardFromShoe());
+  const dCard2 = forceDealerHoleRank ? { suit: 'diamonds', rank: forceDealerHoleRank } : drawCardFromShoe();
   forcePlayerCards = null;
   forceNextPairRank = null;
   forceDealerUpRank = null;
   forceDealerHoleRank = null;
-  updateShoeDisplay();
 
   const pMesh1 = createCard({ suit: pCard1.suit, rank: pCard1.rank });
   const dMesh1 = createCard({ suit: dCard1.suit, rank: dCard1.rank });
@@ -1583,8 +1771,7 @@ function handlePlayerHit() {
     surrenderBtn.classList.add('hidden');
   }
 
-  const cardData = shoe.drawCard();
-  updateShoeDisplay();
+  const cardData = drawCardFromShoe();
 
   const mesh = createCard({ suit: cardData.suit, rank: cardData.rank });
   mesh.visible = false;
@@ -1683,8 +1870,7 @@ function handlePlayerDouble() {
   hand.chipMeshes.push(extraChip);
 
   // Draw exactly ONE card from the shoe
-  const cardData = shoe.drawCard();
-  updateShoeDisplay();
+  const cardData = drawCardFromShoe();
 
   const mesh = createCard({ suit: cardData.suit, rank: cardData.rank });
   mesh.visible = false;
@@ -1824,8 +2010,7 @@ function handlePlayerSplit() {
 
   // 2. Deal second card to active hand after cards shift
   setTimeout(() => {
-    const cardData1 = shoe.drawCard();
-    updateShoeDisplay();
+    const cardData1 = drawCardFromShoe();
     const mesh1 = createCard({ suit: cardData1.suit, rank: cardData1.rank });
     mesh1.visible = false;
     scene.add(mesh1);
@@ -1846,8 +2031,7 @@ function handlePlayerSplit() {
 
         // 3. Deal second card to new hand
         setTimeout(() => {
-          const cardData2 = shoe.drawCard();
-          updateShoeDisplay();
+          const cardData2 = drawCardFromShoe();
           const mesh2 = createCard({ suit: cardData2.suit, rank: cardData2.rank });
           mesh2.visible = false;
           scene.add(mesh2);
@@ -1972,8 +2156,7 @@ function runDealerStep() {
   const scale = getSpeedScale();
   if (shouldDealerHit(dealerHand.map((c) => c.data), settings.dealerHitsSoft17)) {
     setTimeout(() => {
-      const cardData = shoe.drawCard();
-      updateShoeDisplay();
+      const cardData = drawCardFromShoe();
 
       const mesh = createCard({ suit: cardData.suit, rank: cardData.rank });
       mesh.visible = false;
@@ -2153,6 +2336,20 @@ function endRound() {
   dealBtn.classList.remove('hidden');
 
   updateBankrollDisplay();
+
+  // Schedule auto-cleanup of cards into the discard tray after idle pause (1.8s scaled)
+  if (autoCleanupTimer) {
+    clearTimeout(autoCleanupTimer);
+    autoCleanupTimer = null;
+  }
+  const hasCards = dealerHand.length > 0 || playerHands.some((h) => h.cards.length > 0);
+  if (hasCards) {
+    const idleDelay = Math.round(1800 * getSpeedScale());
+    autoCleanupTimer = setTimeout(() => {
+      autoCleanupTimer = null;
+      sweepCardsToDiscard();
+    }, idleDelay);
+  }
 }
 
 // 18. Event Listeners
@@ -2780,6 +2977,10 @@ if (settingDeckCountSelect) {
     if (gameState === 'BETTING' && !isBusy) {
       shoe = new Shoe(newCount);
       updateShoeDisplay();
+      discardedCardsCount = 0;
+      if (table && table.resetDiscardStack) {
+        table.resetDiscardStack();
+      }
     }
   });
 }
@@ -2871,6 +3072,10 @@ if (toolReshuffleBtn) {
     shoe.shuffle();
     playShuffleSound();
     updateShoeDisplay();
+    discardedCardsCount = 0;
+    if (table && table.resetDiscardStack) {
+      table.resetDiscardStack();
+    }
     const origText = toolReshuffleBtn.textContent;
     toolReshuffleBtn.textContent = 'Reshuffled! ✓';
     toolReshuffleBtn.disabled = true;
