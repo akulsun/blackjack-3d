@@ -11,7 +11,8 @@ import {
   canSplit,
   canSurrender,
   calculateSurrenderRefund,
-  determineOutcome
+  determineOutcome,
+  getOptimalMove
 } from './rules.js';
 
 let passedCount = 0;
@@ -474,6 +475,69 @@ test('shouldDealerHit correctly differentiates between S17 (stand) and H17 (hit 
   assert.equal(shouldDealerHit(soft17WithAces, true), true); // HITS on multi-ace soft 17!
   assert.equal(shouldDealerHit(soft18, true), false); // STANDS on soft 18
   assert.equal(shouldDealerHit(hard18, true), false); // STANDS on hard 18
+});
+
+// 18. Basic Strategy Optimal Moves
+test('getOptimalMove determines mathematically optimal basic strategy decisions', () => {
+  // Pairs
+  assert.equal(
+    getOptimalMove([{ rank: '8' }, { rank: '8' }], { rank: '10' }, { canSplitPair: true }),
+    'P'
+  ); // Always split 8s
+  assert.equal(
+    getOptimalMove([{ rank: 'A' }, { rank: 'A' }], { rank: '10' }, { canSplitPair: true }),
+    'P'
+  ); // Always split Aces
+  assert.equal(
+    getOptimalMove([{ rank: '10' }, { rank: '10' }], { rank: '6' }, { canSplitPair: true }),
+    'S'
+  ); // Never split 10s (stand)
+  assert.equal(
+    getOptimalMove([{ rank: '5' }, { rank: '5' }], { rank: '6' }, { canSplitPair: true, canDouble: true }),
+    'D'
+  ); // Double 5s vs 6, do not split
+
+  // Surrender
+  assert.equal(
+    getOptimalMove([{ rank: '10' }, { rank: '6' }], { rank: '10' }, { canLateSurrender: true }),
+    'U'
+  ); // Surrender 16 vs 10
+  assert.equal(
+    getOptimalMove([{ rank: '10' }, { rank: '5' }], { rank: '10' }, { canLateSurrender: true }),
+    'U'
+  ); // Surrender 15 vs 10
+
+  // Soft hands
+  assert.equal(
+    getOptimalMove([{ rank: 'A' }, { rank: '7' }], { rank: '9' }),
+    'H'
+  ); // Soft 18 hits vs 9
+  assert.equal(
+    getOptimalMove([{ rank: 'A' }, { rank: '7' }], { rank: '7' }),
+    'S'
+  ); // Soft 18 stands vs 7
+  assert.equal(
+    getOptimalMove([{ rank: 'A' }, { rank: '7' }], { rank: '5' }, { canDouble: true }),
+    'D'
+  ); // Soft 18 doubles vs 5
+
+  // Hard hands
+  assert.equal(
+    getOptimalMove([{ rank: '10' }, { rank: '7' }], { rank: '10' }),
+    'S'
+  ); // Hard 17 stands vs 10
+  assert.equal(
+    getOptimalMove([{ rank: '7' }, { rank: '5' }], { rank: '5' }),
+    'S'
+  ); // Hard 12 stands vs 5
+  assert.equal(
+    getOptimalMove([{ rank: '7' }, { rank: '5' }], { rank: '2' }),
+    'H'
+  ); // Hard 12 hits vs 2
+  assert.equal(
+    getOptimalMove([{ rank: '6' }, { rank: '5' }], { rank: '6' }, { canDouble: true }),
+    'D'
+  ); // 11 doubles vs 6
 });
 
 console.log(`\nResults: ${passedCount} passed, ${failedCount} failed.\n`);

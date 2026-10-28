@@ -259,3 +259,130 @@ export function determineOutcome(playerCards, dealerCards, isSplitHand = false) 
   // Equal score -> Tie
   return 'push';
 }
+
+/**
+ * Evaluates the mathematically optimal basic strategy move for a player hand.
+ * @param {Array<{ rank: string }>} playerCards
+ * @param {{ rank: string }} dealerUpcard
+ * @param {object} [options]
+ * @param {boolean} [options.canDouble=false]
+ * @param {boolean} [options.canSplitPair=false]
+ * @param {boolean} [options.canLateSurrender=false]
+ * @param {boolean} [options.hitSoft17=false]
+ * @returns {'H'|'S'|'D'|'P'|'U'} Action code: 'H' (Hit), 'S' (Stand), 'D' (Double), 'P' (Split), 'U' (Surrender)
+ */
+export function getOptimalMove(playerCards, dealerUpcard, options = {}) {
+  const {
+    canDouble = false,
+    canSplitPair = false,
+    canLateSurrender = false,
+    hitSoft17 = false
+  } = options;
+
+  if (!playerCards || playerCards.length < 2 || !dealerUpcard) {
+    return 'H';
+  }
+
+  const dVal = getCardValue(dealerUpcard.rank);
+  const isDealerAce = dVal === 11;
+  const isDealerTen = dVal === 10;
+
+  // 1. Pair Splitting
+  if (canSplitPair && playerCards.length === 2 && playerCards[0].rank === playerCards[1].rank) {
+    const r = playerCards[0].rank;
+    if (r === 'A' || r === '8') {
+      return 'P'; // Always split Aces and 8s
+    }
+    if (['10', 'J', 'Q', 'K'].includes(r)) {
+      return 'S'; // Never split 10s
+    }
+    if (r === '9') {
+      if ((dVal >= 2 && dVal <= 6) || dVal === 8 || dVal === 9) return 'P';
+      return 'S';
+    }
+    if (r === '7') {
+      return dVal >= 2 && dVal <= 7 ? 'P' : 'H';
+    }
+    if (r === '6') {
+      return dVal >= 2 && dVal <= 6 ? 'P' : 'H';
+    }
+    if (r === '5') {
+      if (canDouble && dVal >= 2 && dVal <= 9) return 'D';
+      return 'H';
+    }
+    if (r === '4') {
+      if (dVal === 5 || dVal === 6) return 'P';
+      return 'H';
+    }
+    if (r === '2' || r === '3') {
+      return dVal >= 2 && dVal <= 7 ? 'P' : 'H';
+    }
+  }
+
+  // 2. Late Surrender
+  const { score, isSoft } = calculateHand(playerCards);
+  if (canLateSurrender && playerCards.length === 2 && !isSoft) {
+    if (score === 16 && (dVal === 9 || isDealerTen || isDealerAce)) {
+      return 'U';
+    }
+    if (score === 15 && (isDealerTen || (isDealerAce && hitSoft17))) {
+      return 'U';
+    }
+    if (score === 17 && isDealerAce && hitSoft17) {
+      return 'U';
+    }
+  }
+
+  // 3. Soft Hands
+  if (isSoft && score <= 21) {
+    if (score >= 20) {
+      return 'S';
+    }
+    if (score === 19) {
+      if (canDouble && dVal === 6 && playerCards.length === 2) return 'D';
+      return 'S';
+    }
+    if (score === 18) {
+      if (canDouble && dVal >= 2 && dVal <= 6 && playerCards.length === 2) return 'D';
+      if (dVal === 7 || dVal === 8) return 'S';
+      return 'H';
+    }
+    if (score === 17) {
+      if (canDouble && dVal >= 3 && dVal <= 6 && playerCards.length === 2) return 'D';
+      return 'H';
+    }
+    if (score === 15 || score === 16) {
+      if (canDouble && dVal >= 4 && dVal <= 6 && playerCards.length === 2) return 'D';
+      return 'H';
+    }
+    if (score === 13 || score === 14) {
+      if (canDouble && dVal >= 5 && dVal <= 6 && playerCards.length === 2) return 'D';
+      return 'H';
+    }
+  }
+
+  // 4. Hard Hands
+  if (score >= 17) {
+    return 'S';
+  }
+  if (score >= 13 && score <= 16) {
+    return dVal >= 2 && dVal <= 6 ? 'S' : 'H';
+  }
+  if (score === 12) {
+    return dVal >= 4 && dVal <= 6 ? 'S' : 'H';
+  }
+  if (score === 11) {
+    if (canDouble && playerCards.length === 2 && (!isDealerAce || hitSoft17)) return 'D';
+    return 'H';
+  }
+  if (score === 10) {
+    if (canDouble && dVal >= 2 && dVal <= 9 && playerCards.length === 2) return 'D';
+    return 'H';
+  }
+  if (score === 9) {
+    if (canDouble && dVal >= 3 && dVal <= 6 && playerCards.length === 2) return 'D';
+    return 'H';
+  }
+
+  return 'H';
+}

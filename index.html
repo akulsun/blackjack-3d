@@ -41,7 +41,10 @@
 
     <!-- Bankroll & Current Bet Display -->
     <div id="bankroll-card">
-      <div class="bankroll-label">Bankroll</div>
+      <div class="bankroll-header-row">
+        <span class="bankroll-label">Bankroll</span>
+        <span id="vip-tier-badge" class="vip-tier-badge" title="Current Bankroll VIP Tier">🥉 Bronze Roller</span>
+      </div>
       <div id="bankroll-val" class="bankroll-amount">$1,000</div>
       <div id="current-bet-display" class="bet-amount hidden">Bet: <span id="bet-val">$0</span></div>
       <button id="reset-bankroll-btn" class="reset-btn hidden" title="Reload $1,000 starting chips">Reload $1,000</button>
@@ -550,6 +553,26 @@
 
         <!-- Modal Body -->
         <div class="settings-modal-body stats-body">
+          <!-- VIP Tier & Progression Card -->
+          <div class="stats-tier-card">
+            <div class="stats-tier-info">
+              <span class="stats-tier-icon" id="stats-tier-icon">🥉</span>
+              <div class="stats-tier-text">
+                <div class="stats-tier-header-row">
+                  <strong id="stats-tier-name">Bronze Roller</strong>
+                  <span class="stats-tier-level-tag">VIP Status</span>
+                </div>
+                <span id="stats-tier-desc" class="stats-tier-desc">Tier milestone progression based on bankroll</span>
+              </div>
+            </div>
+            <div class="stats-tier-progress-group">
+              <div class="stats-tier-bar">
+                <div id="stats-tier-fill" class="stats-tier-fill" style="width: 66%;"></div>
+              </div>
+              <span id="stats-tier-target" class="stats-tier-target">$500 to Silver Club</span>
+            </div>
+          </div>
+
           <!-- KPI Metrics Grid -->
           <div class="stats-kpi-grid">
             <div class="kpi-card">
@@ -561,6 +584,11 @@
               <span class="kpi-title">Win Rate</span>
               <span id="kpi-win-rate" class="kpi-value">0%</span>
               <span id="kpi-record" class="kpi-sub">0W &bull; 0L &bull; 0P</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-title">Strategy Accuracy</span>
+              <span id="kpi-strategy-acc" class="kpi-value">100%</span>
+              <span id="kpi-strategy-sub" class="kpi-sub">0 / 0 optimal moves</span>
             </div>
             <div class="kpi-card">
               <span class="kpi-title">Blackjacks</span>

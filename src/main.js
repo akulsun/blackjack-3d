@@ -15,7 +15,8 @@ import {
   shouldDealerPeek,
   canOfferInsurance,
   calculateMaxInsurance,
-  resolveInsurance
+  resolveInsurance,
+  getOptimalMove
 } from './rules.js';
 import {
   playCardSlideSound,
@@ -42,7 +43,10 @@ import {
   resetStats,
   recordRoundOutcome,
   calculateWinRate,
-  renderTrajectoryChart
+  renderTrajectoryChart,
+  getVIPTier,
+  getStrategyAccuracy,
+  recordStrategyDecision
 } from './stats.js';
 
 // 1. Scene & Environment
@@ -403,6 +407,13 @@ updateShoeDisplay();
 function updateBankrollDisplay() {
   if (bankrollVal) {
     bankrollVal.textContent = `$${bankroll.toLocaleString()}`;
+  }
+  const vipBadge = document.getElementById('vip-tier-badge');
+  if (vipBadge) {
+    const tier = getVIPTier(bankroll);
+    vipBadge.textContent = `${tier.icon} ${tier.name}`;
+    vipBadge.style.borderColor = tier.color;
+    vipBadge.style.color = tier.color;
   }
   if (betVal) {
     betVal.textContent = `$${currentBet.toLocaleString()}`;
@@ -1521,10 +1532,36 @@ function onAllPlayerHandsComplete() {
   startDealerTurn();
 }
 
+function trackPlayerStrategyDecision(action, hand) {
+  if (!hand || !dealerHand) return;
+  const dealerUpcard = dealerHand.find((c) => !c.isHole)?.data;
+  if (!dealerUpcard) return;
+
+  const optimal = getOptimalMove(
+    hand.cards.map((c) => c.data),
+    dealerUpcard,
+    {
+      canDouble: canDoubleDown(hand.cards.map((c) => c.data), bankroll, hand.bet) && !hand.isSplitAces,
+      canSplitPair: canSplit(hand.cards.map((c) => c.data), bankroll, hand.bet, totalSplits),
+      canLateSurrender: canSurrender(
+        hand.cards.map((c) => c.data),
+        true,
+        playerHands.length === 1 && totalSplits === 0
+      ),
+      hitSoft17: settings.dealerHitsSoft17
+    }
+  );
+
+  const isOptimal = action === optimal;
+  recordStrategyDecision(isOptimal);
+}
+
 function handlePlayerHit() {
   if (isBusy || gameState !== 'PLAYER_TURN') return;
   const hand = playerHands[activeHandIndex];
   if (!hand || hand.isDone) return;
+
+  trackPlayerStrategyDecision('H', hand);
 
   isBusy = true;
   hitBtn.disabled = true;
@@ -1598,6 +1635,8 @@ function handlePlayerStand() {
   const hand = playerHands[activeHandIndex];
   if (!hand || hand.isDone) return;
 
+  trackPlayerStrategyDecision('S', hand);
+
   hand.isDone = true;
   activeHandIndex++;
   playActiveHand();
@@ -1610,6 +1649,8 @@ function handlePlayerDouble() {
 
   const canDouble = canDoubleDown(hand.cards.map((c) => c.data), bankroll, hand.bet) && !hand.isSplitAces;
   if (!canDouble) return;
+
+  trackPlayerStrategyDecision('D', hand);
 
   isBusy = true;
   hitBtn.disabled = true;
@@ -1690,6 +1731,8 @@ function handlePlayerSplit() {
 
   const canDoSplit = canSplit(hand.cards.map((c) => c.data), bankroll, hand.bet, totalSplits);
   if (!canDoSplit) return;
+
+  trackPlayerStrategyDecision('P', hand);
 
   isBusy = true;
   hitBtn.disabled = true;
@@ -1853,6 +1896,8 @@ function handlePlayerSurrender() {
     playerHands.length === 1 && totalSplits === 0
   );
   if (!canDoSurrender) return;
+
+  trackPlayerStrategyDecision('U', hand);
 
   isBusy = true;
   playerActions.classList.add('hidden');
@@ -2186,6 +2231,22 @@ if (toolOpenShortcutsBtn) {
 // Player Analytics & Stats Modal Management
 function updateStatsUI() {
   const stats = loadStats();
+
+  // VIP Tier & Progression Card
+  const tier = getVIPTier(bankroll);
+  const tierIcon = document.getElementById('stats-tier-icon');
+  const tierName = document.getElementById('stats-tier-name');
+  const tierFill = document.getElementById('stats-tier-fill');
+  const tierTarget = document.getElementById('stats-tier-target');
+  if (tierIcon) tierIcon.textContent = tier.icon;
+  if (tierName) tierName.textContent = tier.name;
+  if (tierFill) tierFill.style.width = `${tier.progressPercent}%`;
+  if (tierTarget) {
+    tierTarget.textContent = tier.nextTier
+      ? `$${tier.toNext.toLocaleString()} to ${tier.nextTier.name} (${tier.progressPercent}%)`
+      : 'Highest VIP Milestone Achieved! 👑';
+  }
+
   if (kpiNetProfit) {
     const isPos = stats.netProfit > 0;
     const isNeg = stats.netProfit < 0;
@@ -2202,6 +2263,18 @@ function updateStatsUI() {
   if (kpiRecord) {
     kpiRecord.textContent = `${stats.handsWon}W • ${stats.handsLost}L • ${stats.handsPushed}P`;
   }
+
+  // Basic Strategy Accuracy
+  const kpiStrategyAcc = document.getElementById('kpi-strategy-acc');
+  const kpiStrategySub = document.getElementById('kpi-strategy-sub');
+  if (kpiStrategyAcc) {
+    const acc = getStrategyAccuracy(stats);
+    kpiStrategyAcc.textContent = `${acc}%`;
+  }
+  if (kpiStrategySub) {
+    kpiStrategySub.textContent = `${stats.optimalDecisions || 0} / ${stats.strategyDecisions || 0} optimal decisions`;
+  }
+
   if (kpiBlackjacks) {
     kpiBlackjacks.textContent = stats.blackjacks.toString();
   }

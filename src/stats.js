@@ -7,6 +7,39 @@
 const STORAGE_KEY = 'blackjack_3d_analytics';
 const MAX_HISTORY_POINTS = 50;
 
+export const VIP_TIERS = [
+  { name: 'Bronze Roller', min: 0, max: 1499, icon: '🥉', color: '#cd7f32' },
+  { name: 'Silver Club', min: 1500, max: 4999, icon: '🥈', color: '#cbd5e1' },
+  { name: 'Gold VIP', min: 5000, max: 14999, icon: '🥇', color: '#facc15' },
+  { name: 'Platinum Elite', min: 15000, max: 49999, icon: '💎', color: '#38bdf8' },
+  { name: 'Diamond Whale', min: 50000, max: Infinity, icon: '👑', color: '#c084fc' }
+];
+
+export function getVIPTier(bankroll) {
+  const amount = Math.max(0, bankroll || 0);
+  for (let i = VIP_TIERS.length - 1; i >= 0; i--) {
+    if (amount >= VIP_TIERS[i].min) {
+      const tier = VIP_TIERS[i];
+      const nextTier = VIP_TIERS[i + 1] || null;
+      let progressPercent = 100;
+      let toNext = 0;
+      if (nextTier) {
+        const span = nextTier.min - tier.min;
+        const currentInTier = amount - tier.min;
+        progressPercent = Math.min(100, Math.max(0, Math.round((currentInTier / span) * 100)));
+        toNext = nextTier.min - amount;
+      }
+      return {
+        ...tier,
+        progressPercent,
+        toNext,
+        nextTier
+      };
+    }
+  }
+  return { ...VIP_TIERS[0], progressPercent: 0, toNext: 1500, nextTier: VIP_TIERS[1] };
+}
+
 export const DEFAULT_STATS = {
   handsPlayed: 0,
   handsWon: 0,
@@ -18,6 +51,8 @@ export const DEFAULT_STATS = {
   biggestWin: 0,
   totalWagered: 0,
   netProfit: 0,
+  strategyDecisions: 0,
+  optimalDecisions: 0,
   history: [] // [{ round: number, netChange: number, bankroll: number, result: 'win'|'loss'|'push'|'bj' }]
 };
 
@@ -37,6 +72,8 @@ export function loadStats() {
         biggestWin: Number(parsed.biggestWin) || 0,
         totalWagered: Number(parsed.totalWagered) || 0,
         netProfit: Number(parsed.netProfit) || 0,
+        strategyDecisions: Number(parsed.strategyDecisions) || 0,
+        optimalDecisions: Number(parsed.optimalDecisions) || 0,
         history: Array.isArray(parsed.history) ? parsed.history : []
       };
     }
@@ -58,6 +95,26 @@ export function resetStats() {
   const fresh = { ...DEFAULT_STATS, history: [] };
   saveStats(fresh);
   return fresh;
+}
+
+/**
+ * Records whether a player action followed basic strategy.
+ * @param {boolean} isOptimal
+ * @returns {object} updated stats
+ */
+export function recordStrategyDecision(isOptimal) {
+  const stats = loadStats();
+  stats.strategyDecisions += 1;
+  if (isOptimal) {
+    stats.optimalDecisions += 1;
+  }
+  saveStats(stats);
+  return stats;
+}
+
+export function getStrategyAccuracy(stats) {
+  if (!stats.strategyDecisions || stats.strategyDecisions <= 0) return 100;
+  return Math.round((stats.optimalDecisions / stats.strategyDecisions) * 100);
 }
 
 /**

@@ -1550,3 +1550,115 @@ html, body {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* Bankroll Header & VIP Tier Badge */
+.bankroll-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.vip-tier-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: rgba(212, 175, 55, 0.15);
+  color: #f7e7a6;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  letter-spacing: 0.4px;
+}
+
+/* VIP Tier Card in Analytics Modal */
+.stats-tier-card {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stats-tier-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stats-tier-icon {
+  font-size: 24px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.stats-tier-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stats-tier-header-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stats-tier-header-row strong {
+  font-size: 14px;
+  color: #ffffff;
+  letter-spacing: 0.3px;
+}
+
+.stats-tier-level-tag {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(212, 175, 55, 0.2);
+  color: #fde047;
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  letter-spacing: 0.5px;
+}
+
+.stats-tier-desc {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.stats-tier-progress-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stats-tier-bar {
+  width: 100%;
+  height: 7px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.stats-tier-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #d4af37 0%, #fbbf24 100%);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.stats-tier-target {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.65);
+  text-align: right;
+}
