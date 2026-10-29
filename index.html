@@ -53,26 +53,26 @@
     </div>
 
     <!-- Bankroll & Current Bet Display -->
-    <div id="bankroll-card" title="Click to view Casino Loyalty Career &amp; Stats">
+    <div id="bankroll-card" title="Click to view Level Progress & Stats">
       <div class="bankroll-header-row">
         <span class="bankroll-label">Bankroll</span>
-        <span id="vip-tier-badge" class="vip-tier-badge" title="Career Loyalty Tier (Permanent Status)">🥉 Bronze Roller</span>
+        <span id="bankroll-title-badge" class="bankroll-title-badge">Beginner</span>
       </div>
       <div id="bankroll-val" class="bankroll-amount">$1,000</div>
       <div id="current-bet-display" class="bet-amount hidden">Bet: <span id="bet-val">$0</span></div>
 
-      <!-- Career XP Progress Bar -->
+      <!-- Level XP Progress Bar -->
       <div id="bankroll-xp-container" class="bankroll-xp-container">
         <div class="bankroll-xp-header">
-          <span id="bankroll-level-badge" class="bankroll-level-badge">Lv. 1</span>
-          <span id="bankroll-xp-text" class="bankroll-xp-text">0 / 200 XP</span>
+          <span id="bankroll-level-badge" class="bankroll-level-badge">🃏 Lv. 1</span>
+          <span id="bankroll-xp-text" class="bankroll-xp-text">0 / 100 XP</span>
         </div>
         <div class="bankroll-xp-track">
           <div id="bankroll-xp-fill" class="bankroll-xp-fill" style="width: 0%;"></div>
         </div>
       </div>
 
-      <button id="reset-bankroll-btn" class="reset-btn hidden" title="Claim VIP reload chips">Reload $1,000</button>
+      <button id="reset-bankroll-btn" class="reset-btn hidden" title="Claim reload chips">Reload $1,000</button>
     </div>
 
     <!-- Live Hand Scores -->
@@ -578,45 +578,35 @@
 
         <!-- Modal Body -->
         <div class="settings-modal-body stats-body">
-          <!-- VIP Loyalty Career & Progression Card -->
+          <!-- Level Progression Card -->
           <div class="stats-tier-card">
             <div class="stats-tier-info">
-              <span class="stats-tier-icon" id="stats-tier-icon">🥉</span>
+              <span class="stats-tier-icon" id="stats-level-icon">🃏</span>
               <div class="stats-tier-text">
                 <div class="stats-tier-header-row">
-                  <strong id="stats-tier-name">Bronze Roller</strong>
-                  <span class="stats-tier-level-tag" id="stats-tier-level-tag">Level 1</span>
-                  <span class="stats-tier-title-tag" id="stats-tier-title-tag">Apprentice Roller</span>
+                  <strong id="stats-level-name">Level 1</strong>
+                  <span class="stats-tier-level-tag" id="stats-level-tag">Beginner</span>
+                  <span class="stats-tier-title-tag" id="stats-level-title-tag">Reload: $1,000</span>
                 </div>
-                <span id="stats-tier-desc" class="stats-tier-desc">Permanent Loyalty Career Status &bull; Never demotes from bets</span>
+                <span id="stats-level-desc" class="stats-tier-desc">Earn XP from hands played to level up &bull; Levels never reset</span>
               </div>
             </div>
 
-            <!-- Progression Track -->
+            <!-- XP Progress Track -->
             <div class="stats-tier-progress-group">
               <div class="stats-tier-bar-labels">
-                <span id="stats-xp-summary" class="stats-xp-summary">0 / 1,000 XP to Silver Club</span>
-                <span id="stats-tier-target" class="stats-tier-target">1,000 XP remaining (0%)</span>
+                <span id="stats-xp-summary" class="stats-xp-summary">0 / 100 XP to Level 2</span>
+                <span id="stats-level-target" class="stats-tier-target">100 XP remaining (0%)</span>
               </div>
               <div class="stats-tier-bar">
-                <div id="stats-tier-fill" class="stats-tier-fill" style="width: 0%;"></div>
+                <div id="stats-level-fill" class="stats-tier-fill" style="width: 0%;"></div>
               </div>
             </div>
 
-            <!-- Active Perks & Next Milestone -->
-            <div class="stats-perks-row">
-              <div class="stats-perks-block">
-                <span class="stats-perk-header">Active Tier Perks:</span>
-                <div id="stats-active-perks" class="stats-perk-pills">
-                  <span class="perk-pill">✓ $1,000 Reload Allowance</span>
-                  <span class="perk-pill">✓ Emerald Table Felt</span>
-                  <span class="perk-pill">✓ Strategy Guidance</span>
-                </div>
-              </div>
-              <div class="stats-next-block">
-                <span class="stats-perk-header">Next Milestone Preview:</span>
-                <span id="stats-next-preview" class="stats-next-preview">⭐ Silver Club (Lv. 6): $2,500 Reload Allowance (+150%) &amp; Sapphire Navy Felt</span>
-              </div>
+            <!-- Next Milestone -->
+            <div class="stats-next-block">
+              <span class="stats-perk-header">Next Milestone:</span>
+              <span id="stats-next-preview" class="stats-next-preview">♠️ Level 5: "Card Sharp" — Reload $1,500</span>
             </div>
           </div>
 
@@ -628,9 +618,9 @@
               <span id="kpi-total-wagered" class="kpi-sub">Total Wagered: $0</span>
             </div>
             <div class="kpi-card">
-              <span class="kpi-title">Career Loyalty XP</span>
+              <span class="kpi-title">Level &amp; XP</span>
               <span id="kpi-total-xp" class="kpi-value" style="color: #facc15;">0 XP</span>
-              <span id="kpi-level-sub" class="kpi-sub">Level 1 &bull; 0 / 200 XP</span>
+              <span id="kpi-level-sub" class="kpi-sub">Level 1 &bull; 0 / 100 XP</span>
             </div>
             <div class="kpi-card">
               <span class="kpi-title">Win Rate</span>

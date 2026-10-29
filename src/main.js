@@ -45,13 +45,13 @@ import {
   recordRoundOutcome,
   calculateWinRate,
   renderTrajectoryChart,
-  getVIPTier,
-  getLoyaltyProgression,
+  getLevelProgression,
   getReloadAllowance,
   addLoyaltyXP,
   calculateLevel,
   getStrategyAccuracy,
-  recordStrategyDecision
+  recordStrategyDecision,
+  getNextMilestone
 } from './stats.js';
 
 // 1. Scene & Environment
@@ -434,31 +434,29 @@ function updateBankrollDisplay() {
   }
 
   const stats = loadStats();
-  const loyalty = getLoyaltyProgression(stats);
-  const allowance = loyalty.reloadAllowance || 1000;
-
-  const vipBadge = document.getElementById('vip-tier-badge');
-  if (vipBadge) {
-    vipBadge.textContent = `${loyalty.icon} ${loyalty.name}`;
-    vipBadge.style.borderColor = loyalty.color;
-    vipBadge.style.color = loyalty.color;
-  }
+  const prog = getLevelProgression(stats);
+  const allowance = prog.reloadAllowance || 1000;
 
   const levelBadge = document.getElementById('bankroll-level-badge');
   if (levelBadge) {
-    levelBadge.textContent = `Lv. ${loyalty.level}`;
+    levelBadge.textContent = `${prog.icon} Lv. ${prog.level}`;
+  }
+
+  const titleBadge = document.getElementById('bankroll-title-badge');
+  if (titleBadge) {
+    titleBadge.textContent = prog.title;
   }
 
   const xpText = document.getElementById('bankroll-xp-text');
   if (xpText) {
-    const curInLvl = Math.max(0, loyalty.xp - loyalty.levelMinXp);
-    const spanLvl = Math.max(1, loyalty.levelMaxXp - loyalty.levelMinXp);
+    const curInLvl = Math.max(0, prog.xp - prog.levelMinXp);
+    const spanLvl = Math.max(1, prog.levelMaxXp - prog.levelMinXp);
     xpText.textContent = `${curInLvl.toLocaleString()} / ${spanLvl.toLocaleString()} XP`;
   }
 
   const xpFill = document.getElementById('bankroll-xp-fill');
   if (xpFill) {
-    xpFill.style.width = `${loyalty.levelProgressPercent}%`;
+    xpFill.style.width = `${prog.levelProgressPercent}%`;
   }
 
   if (betVal) {
@@ -544,7 +542,7 @@ function updateBankrollDisplay() {
 // Level-Up & Tier Celebration Banner Management
 let levelUpToastTimer = null;
 function showLevelUpCelebration(xpResult) {
-  if (!xpResult || (!xpResult.leveledUp && !xpResult.tieredUp)) return;
+  if (!xpResult || !xpResult.leveledUp) return;
 
   playLevelUpSound();
 
@@ -555,17 +553,11 @@ function showLevelUpCelebration(xpResult) {
   const icon = document.getElementById('levelup-icon');
 
   if (toast && title && desc) {
-    if (xpResult.tieredUp) {
-      if (tag) tag.textContent = '🎉 VIP TIER PROMOTION!';
-      if (icon) icon.textContent = xpResult.newTier.icon;
-      title.textContent = `Level ${xpResult.newLevel} • ${xpResult.newTier.name}`;
-      desc.textContent = `Reload Allowance upgraded to $${xpResult.newTier.reloadAllowance.toLocaleString()}! Perks: ${xpResult.newTier.perks[1] || ''}`;
-    } else {
-      if (tag) tag.textContent = '⭐ LEVEL UP!';
-      if (icon) icon.textContent = '⭐';
-      title.textContent = `Level ${xpResult.newLevel} • ${xpResult.newTier.name}`;
-      desc.textContent = `${xpResult.newTier.title} • Reload Allowance: $${xpResult.newTier.reloadAllowance.toLocaleString()}`;
-    }
+    const prog = xpResult.newProgression;
+    if (tag) tag.textContent = '⭐ LEVEL UP!';
+    if (icon) icon.textContent = prog.icon;
+    title.textContent = `Level ${xpResult.newLevel}`;
+    desc.textContent = `${prog.title} • Reload: $${prog.reloadAllowance.toLocaleString()}`;
 
     toast.classList.remove('hidden');
     toast.classList.remove('fade-out');
@@ -584,7 +576,7 @@ function showLevelUpCelebration(xpResult) {
 function logRoundOutcome(params) {
   const result = recordRoundOutcome(params);
   updateBankrollDisplay();
-  if (result && result.xpResult && (result.xpResult.leveledUp || result.xpResult.tieredUp)) {
+  if (result && result.xpResult && result.xpResult.leveledUp) {
     showLevelUpCelebration(result.xpResult);
   }
   return result;
@@ -2506,68 +2498,56 @@ if (toolOpenShortcutsBtn) {
 // Player Analytics & Stats Modal Management
 function updateStatsUI() {
   const stats = loadStats();
-  const loyalty = getLoyaltyProgression(stats);
+  const prog = getLevelProgression(stats);
 
-  // VIP Loyalty Career & Progression Card
-  const tierIcon = document.getElementById('stats-tier-icon');
-  const tierName = document.getElementById('stats-tier-name');
-  const tierLevelTag = document.getElementById('stats-tier-level-tag');
-  const tierTitleTag = document.getElementById('stats-tier-title-tag');
-  const tierFill = document.getElementById('stats-tier-fill');
+  // Level Progression Card
+  const levelIcon = document.getElementById('stats-level-icon');
+  const levelName = document.getElementById('stats-level-name');
+  const levelTag = document.getElementById('stats-level-tag');
+  const levelTitleTag = document.getElementById('stats-level-title-tag');
+  const levelFill = document.getElementById('stats-level-fill');
   const xpSummary = document.getElementById('stats-xp-summary');
-  const tierTarget = document.getElementById('stats-tier-target');
-  const activePerksList = document.getElementById('stats-active-perks');
+  const levelTarget = document.getElementById('stats-level-target');
   const nextPreview = document.getElementById('stats-next-preview');
 
-  if (tierIcon) tierIcon.textContent = loyalty.icon;
-  if (tierName) {
-    tierName.textContent = loyalty.name;
-    tierName.style.color = loyalty.color;
+  if (levelIcon) levelIcon.textContent = prog.icon;
+  if (levelName) {
+    levelName.textContent = `Level ${prog.level}`;
   }
-  if (tierLevelTag) tierLevelTag.textContent = `Level ${loyalty.level}`;
-  if (tierTitleTag) tierTitleTag.textContent = loyalty.title;
-  if (tierFill) tierFill.style.width = `${loyalty.tierProgressPercent}%`;
+  if (levelTag) levelTag.textContent = prog.title;
+  if (levelTitleTag) levelTitleTag.textContent = `Reload: $${prog.reloadAllowance.toLocaleString()}`;
+  if (levelFill) levelFill.style.width = `${prog.levelProgressPercent}%`;
   if (xpSummary) {
-    const curInTier = Math.max(0, loyalty.xp - loyalty.minXp);
-    const spanTier = loyalty.nextTier ? loyalty.nextTier.minXp - loyalty.minXp : 1;
-    xpSummary.textContent = loyalty.nextTier
-      ? `${curInTier.toLocaleString()} / ${spanTier.toLocaleString()} XP to ${loyalty.nextTier.name}`
-      : `${loyalty.xp.toLocaleString()} XP (Max Rank)`;
+    const curInLvl = Math.max(0, prog.xp - prog.levelMinXp);
+    const spanLvl = Math.max(1, prog.levelMaxXp - prog.levelMinXp);
+    xpSummary.textContent = `${curInLvl.toLocaleString()} / ${spanLvl.toLocaleString()} XP to Level ${prog.level + 1}`;
   }
-  if (tierTarget) {
-    tierTarget.textContent = loyalty.nextTier
-      ? `${loyalty.tierToNext.toLocaleString()} XP remaining (${loyalty.tierProgressPercent}%)`
-      : 'Monte Carlo Legend Status Achieved! 👑';
-  }
-
-  // Active perks rendering
-  if (activePerksList) {
-    activePerksList.innerHTML = loyalty.perks
-      .map((p) => `<span class="perk-pill">✓ ${p}</span>`)
-      .join('');
+  if (levelTarget) {
+    levelTarget.textContent = `${prog.levelToNext.toLocaleString()} XP remaining (${prog.levelProgressPercent}%)`;
   }
 
   // Next milestone preview
   if (nextPreview) {
-    if (loyalty.nextTier) {
-      nextPreview.textContent = `⭐ ${loyalty.nextTier.name} (Lv. ${loyalty.nextTier.minLevel}): $${loyalty.nextTier.reloadAllowance.toLocaleString()} Reload Allowance & ${loyalty.nextTier.perks[1] || ''}`;
+    const nextMs = getNextMilestone(prog.level);
+    if (nextMs) {
+      nextPreview.textContent = `${nextMs.icon} Level ${nextMs.level}: "${nextMs.title}" — Reload $${nextMs.reloadAllowance.toLocaleString()}`;
     } else {
-      nextPreview.textContent = '👑 All VIP Table Privileges & Maximum Reloads Unlocked';
+      nextPreview.textContent = '🏆 All milestones achieved! Maximum reload unlocked.';
     }
   }
 
-  // Career Loyalty XP & Peak Bankroll KPIs
+  // Career XP & Peak Bankroll KPIs
   const kpiTotalXp = document.getElementById('kpi-total-xp');
   const kpiLevelSub = document.getElementById('kpi-level-sub');
   const kpiPeakBankroll = document.getElementById('kpi-peak-bankroll');
 
   if (kpiTotalXp) {
-    kpiTotalXp.textContent = `${loyalty.xp.toLocaleString()} XP`;
+    kpiTotalXp.textContent = `${prog.xp.toLocaleString()} XP`;
   }
   if (kpiLevelSub) {
-    const curInLvl = Math.max(0, loyalty.xp - loyalty.levelMinXp);
-    const spanLvl = Math.max(1, loyalty.levelMaxXp - loyalty.levelMinXp);
-    kpiLevelSub.textContent = `Level ${loyalty.level} • ${curInLvl.toLocaleString()} / ${spanLvl.toLocaleString()} XP`;
+    const curInLvl = Math.max(0, prog.xp - prog.levelMinXp);
+    const spanLvl = Math.max(1, prog.levelMaxXp - prog.levelMinXp);
+    kpiLevelSub.textContent = `Level ${prog.level} • ${curInLvl.toLocaleString()} / ${spanLvl.toLocaleString()} XP`;
   }
   if (kpiPeakBankroll) {
     kpiPeakBankroll.textContent = `$${(stats.peakBankroll || bankroll || 1000).toLocaleString()}`;

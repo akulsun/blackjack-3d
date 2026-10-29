@@ -1,128 +1,97 @@
 /**
  * Player Statistics & Bankroll Progression Tracker for 3D Blackjack.
  * Tracks session & lifetime metrics, win rates, streaks, and bankroll trajectory.
- * Provides a persistent Casino Loyalty & XP Career Progression system.
- * Unlocks dynamic reload allowances, exclusive table themes, and level celebrations.
+ * Provides a persistent XP & Level career progression system.
+ * Unlocks dynamic reload allowances and level celebrations.
  */
 
 const STORAGE_KEY = 'blackjack_3d_analytics';
 const MAX_HISTORY_POINTS = 50;
 
-export const LOYALTY_TIERS = [
-  {
-    id: 'bronze',
-    name: 'Bronze Roller',
-    minXp: 0,
-    maxXp: 999,
-    minLevel: 1,
-    maxLevel: 5,
-    icon: '🥉',
-    color: '#cd7f32',
-    accent: 'rgba(205, 127, 50, 0.25)',
-    reloadAllowance: 1000,
-    title: 'Apprentice Roller',
-    perks: ['$1,000 Reload Allowance', 'Emerald Felt', 'Table Analytics & Strategy Guidance']
-  },
-  {
-    id: 'silver',
-    name: 'Silver Club',
-    minXp: 1000,
-    maxXp: 4999,
-    minLevel: 6,
-    maxLevel: 15,
-    icon: '🥈',
-    color: '#cbd5e1',
-    accent: 'rgba(203, 213, 225, 0.25)',
-    reloadAllowance: 2500,
-    title: 'Card Sharp',
-    perks: ['$2,500 Reload Allowance (+150%)', 'Sapphire Navy Felt Unlocked', 'Priority Bankroll Rebuy']
-  },
-  {
-    id: 'gold',
-    name: 'Gold VIP',
-    minXp: 5000,
-    maxXp: 14999,
-    minLevel: 16,
-    maxLevel: 30,
-    icon: '🥇',
-    color: '#facc15',
-    accent: 'rgba(250, 204, 21, 0.25)',
-    reloadAllowance: 5000,
-    title: 'High Roller',
-    perks: ['$5,000 Reload Allowance (+400%)', 'Ruby Velvet Felt Unlocked', '$500 High-Roller Chips Priority']
-  },
-  {
-    id: 'platinum',
-    name: 'Platinum Elite',
-    minXp: 15000,
-    maxXp: 49999,
-    minLevel: 31,
-    maxLevel: 50,
-    icon: '💎',
-    color: '#38bdf8',
-    accent: 'rgba(56, 189, 248, 0.25)',
-    reloadAllowance: 10000,
-    title: 'Pit Boss Favorite',
-    perks: ['$10,000 Reload Allowance (+900%)', 'Onyx Charcoal Felt Unlocked', '$1,000 Whale Chips Priority']
-  },
-  {
-    id: 'diamond',
-    name: 'Diamond Whale',
-    minXp: 50000,
-    maxXp: Infinity,
-    minLevel: 51,
-    maxLevel: 100,
-    icon: '👑',
-    color: '#c084fc',
-    accent: 'rgba(192, 132, 252, 0.25)',
-    reloadAllowance: 25000,
-    title: 'Monte Carlo Legend',
-    perks: ['$25,000 Maximum Reload Allowance', 'Royale Diamond Table Access', 'VIP Whale Crown Status']
-  }
+/**
+ * Level milestones define the reload allowance and title at each threshold.
+ * Between milestones, the most recent milestone applies.
+ */
+const LEVEL_MILESTONES = [
+  { level: 1,  title: 'Beginner',         icon: '🃏', reloadAllowance: 1000 },
+  { level: 5,  title: 'Card Sharp',        icon: '♠️', reloadAllowance: 1500 },
+  { level: 10, title: 'Regular',           icon: '♦️', reloadAllowance: 2000 },
+  { level: 15, title: 'Skilled Player',    icon: '🎰', reloadAllowance: 2500 },
+  { level: 20, title: 'High Roller',       icon: '💰', reloadAllowance: 3000 },
+  { level: 25, title: 'Card Shark',        icon: '🦈', reloadAllowance: 4000 },
+  { level: 30, title: 'Table Regular',     icon: '🎯', reloadAllowance: 5000 },
+  { level: 40, title: 'Pit Boss Favorite', icon: '⭐', reloadAllowance: 7500 },
+  { level: 50, title: 'Casino Legend',     icon: '👑', reloadAllowance: 10000 },
+  { level: 75, title: 'Monte Carlo Elite', icon: '💎', reloadAllowance: 15000 },
+  { level: 100, title: 'Hall of Fame',     icon: '🏆', reloadAllowance: 25000 }
 ];
-
-export const VIP_TIERS = LOYALTY_TIERS;
 
 /**
  * Calculates numeric player level from total XP earned.
+ * Uses a smooth curve: each level requires (level * 100) XP,
+ * so total XP for level L = 50 * L * (L + 1).
+ * This gives: Lv2 = 200 XP, Lv5 = 1500 XP, Lv10 = 5500 XP, Lv20 = 21000 XP, etc.
  */
 export function calculateLevel(xp) {
   const val = Math.max(0, Number(xp) || 0);
-  if (val < 1000) {
-    return Math.min(5, 1 + Math.floor(val / 200));
-  } else if (val < 5000) {
-    return Math.min(15, 6 + Math.floor((val - 1000) / 400));
-  } else if (val < 15000) {
-    return Math.min(30, 16 + Math.floor((val - 5000) / 667));
-  } else if (val < 50000) {
-    return Math.min(50, 31 + Math.floor((val - 15000) / 1750));
-  } else {
-    return 51 + Math.floor((val - 50000) / 2500);
+  // Solve: 50 * L * (L+1) <= val  =>  L = floor((-1 + sqrt(1 + val/50)) / 2) ... but simpler:
+  // XP needed to complete level L (reach L+1) = (L+1) * 100
+  // Cumulative XP for level L = sum from i=1 to L of (i*100) = 50*L*(L+1)
+  // So level = floor((-1 + sqrt(1 + val/50)) / 2) ... let's do it iteratively for clarity:
+  let level = 1;
+  let cumulative = 0;
+  while (true) {
+    const needed = (level) * 100; // XP to go from current level to next
+    if (cumulative + needed > val) break;
+    cumulative += needed;
+    level++;
   }
+  return level;
 }
 
 /**
  * Returns min and max XP bounds for a given level.
+ * minXp = cumulative XP to reach this level
+ * maxXp = cumulative XP to reach next level
  */
 export function getLevelBounds(level) {
   const lvl = Math.max(1, Number(level) || 1);
-  if (lvl <= 5) {
-    return { minXp: (lvl - 1) * 200, maxXp: lvl * 200 };
-  } else if (lvl <= 15) {
-    return { minXp: 1000 + (lvl - 6) * 400, maxXp: 1000 + (lvl - 5) * 400 };
-  } else if (lvl <= 30) {
-    return { minXp: Math.round(5000 + (lvl - 16) * 666.67), maxXp: Math.round(5000 + (lvl - 15) * 666.67) };
-  } else if (lvl <= 50) {
-    return { minXp: 15000 + (lvl - 31) * 1750, maxXp: 15000 + (lvl - 30) * 1750 };
-  } else {
-    return { minXp: 50000 + (lvl - 51) * 2500, maxXp: 50000 + (lvl - 50) * 2500 };
-  }
+  // Cumulative XP to reach level L = sum(i=1..L-1) of i*100 = 50*(L-1)*L
+  const minXp = 50 * (lvl - 1) * lvl;
+  const maxXp = 50 * lvl * (lvl + 1);
+  return { minXp, maxXp };
 }
 
 /**
- * Computes full loyalty career progression details.
+ * Returns the milestone data for the given level (title, icon, reload allowance).
  */
-export function getLoyaltyProgression(statsOrXp) {
+export function getMilestoneForLevel(level) {
+  let milestone = LEVEL_MILESTONES[0];
+  for (let i = LEVEL_MILESTONES.length - 1; i >= 0; i--) {
+    if (level >= LEVEL_MILESTONES[i].level) {
+      milestone = LEVEL_MILESTONES[i];
+      break;
+    }
+  }
+  return milestone;
+}
+
+/**
+ * Returns the next milestone after the current level, or null if at max.
+ */
+export function getNextMilestone(level) {
+  for (let i = 0; i < LEVEL_MILESTONES.length; i++) {
+    if (LEVEL_MILESTONES[i].level > level) {
+      return LEVEL_MILESTONES[i];
+    }
+  }
+  return null;
+}
+
+/**
+ * Computes full level progression details.
+ */
+export function getLevelProgression(statsOrXp) {
   let xp = 0;
   if (typeof statsOrXp === 'number') {
     xp = statsOrXp;
@@ -137,82 +106,57 @@ export function getLoyaltyProgression(statsOrXp) {
   const levelProgressPercent = Math.min(100, Math.round((currentInLevel / levelSpan) * 100));
   const levelToNext = Math.max(0, lvlBounds.maxXp - xp);
 
-  let tierIndex = 0;
-  for (let i = LOYALTY_TIERS.length - 1; i >= 0; i--) {
-    if (xp >= LOYALTY_TIERS[i].minXp) {
-      tierIndex = i;
-      break;
-    }
-  }
-
-  const tier = LOYALTY_TIERS[tierIndex];
-  const nextTier = LOYALTY_TIERS[tierIndex + 1] || null;
-
-  let tierProgressPercent = 100;
-  let tierToNext = 0;
-  if (nextTier) {
-    const tierSpan = nextTier.minXp - tier.minXp;
-    const currentInTier = Math.max(0, xp - tier.minXp);
-    tierProgressPercent = Math.min(100, Math.round((currentInTier / tierSpan) * 100));
-    tierToNext = Math.max(0, nextTier.minXp - xp);
-  }
+  const milestone = getMilestoneForLevel(level);
+  const nextMilestone = getNextMilestone(level);
 
   return {
-    ...tier,
-    tierIndex,
     level,
     xp,
     levelMinXp: lvlBounds.minXp,
     levelMaxXp: lvlBounds.maxXp,
     levelProgressPercent,
     levelToNext,
-    progressPercent: tierProgressPercent,
-    toNext: tierToNext,
-    tierProgressPercent,
-    tierToNext,
-    nextTier,
-    reloadAllowance: tier.reloadAllowance,
-    title: tier.title,
-    perks: tier.perks,
-    nextPerks: nextTier ? nextTier.perks : []
+    title: milestone.title,
+    icon: milestone.icon,
+    reloadAllowance: milestone.reloadAllowance,
+    nextMilestone
   };
 }
 
-/**
- * Backwards compatible helper returning VIP loyalty info.
- */
+// Backwards-compatible aliases
+export const getLoyaltyProgression = getLevelProgression;
+
 export function getVIPTier(bankrollOrStats) {
   if (bankrollOrStats && typeof bankrollOrStats === 'object') {
-    return getLoyaltyProgression(bankrollOrStats);
+    return getLevelProgression(bankrollOrStats);
   }
   const stats = loadStats();
   if (stats && stats.xp !== undefined && stats.xp > 0) {
-    return getLoyaltyProgression(stats);
+    return getLevelProgression(stats);
   }
-  // Fallback if raw number passed
   const amount = Math.max(0, Number(bankrollOrStats) || 0);
-  return getLoyaltyProgression(amount);
+  return getLevelProgression(amount);
 }
 
 /**
- * Returns reload allowance for the player's current loyalty tier.
+ * Returns reload allowance for the player's current level.
  */
 export function getReloadAllowance(statsOrBankroll) {
-  const progression = getLoyaltyProgression(statsOrBankroll || loadStats());
+  const progression = getLevelProgression(statsOrBankroll || loadStats());
   return progression.reloadAllowance || 1000;
 }
 
 /**
- * Adds loyalty XP to player stats, detecting level-ups and tier promotions.
+ * Adds XP to player stats, detecting level-ups.
  */
 export function addLoyaltyXP(stats, amount, category = 'wager') {
-  if (!stats) return { leveledUp: false, tieredUp: false, xpGained: 0, stats };
+  if (!stats) return { leveledUp: false, xpGained: 0, stats };
   const addVal = Math.max(0, Math.round(amount || 0));
-  if (addVal <= 0) return { leveledUp: false, tieredUp: false, xpGained: 0, stats };
+  if (addVal <= 0) return { leveledUp: false, xpGained: 0, stats };
 
   const oldXp = stats.xp || 0;
   const oldLevel = calculateLevel(oldXp);
-  const oldProgression = getLoyaltyProgression(oldXp);
+  const oldProgression = getLevelProgression(oldXp);
 
   stats.xp = oldXp + addVal;
   if (!stats.xpBreakdown) {
@@ -224,18 +168,17 @@ export function addLoyaltyXP(stats, amount, category = 'wager') {
 
   const newLevel = calculateLevel(stats.xp);
   stats.level = newLevel;
-  const newProgression = getLoyaltyProgression(stats.xp);
+  const newProgression = getLevelProgression(stats.xp);
 
   const leveledUp = newLevel > oldLevel;
-  const tieredUp = newProgression.tierIndex > oldProgression.tierIndex;
 
   return {
     leveledUp,
-    tieredUp,
+    tieredUp: false, // kept for backwards compat, always false now
     oldLevel,
     newLevel,
-    oldTier: oldProgression,
-    newTier: newProgression,
+    oldProgression,
+    newProgression,
     xpGained: addVal,
     stats
   };
